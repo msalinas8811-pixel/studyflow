@@ -1,0 +1,73 @@
+rules_version = '2';
+// Reglas de seguridad de StudyFlow: cada familia solo ve sus propios datos.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function memberDoc(fid) { return /databases/$(database)/documents/families/$(fid)/members/$(request.auth.uid); }
+    function isMember(fid) { return signedIn() && exists(memberDoc(fid)); }
+    function isParent(fid) { return isMember(fid) && get(memberDoc(fid)).data.role == 'parent'; }
+    function family(fid) { return get(/databases/$(database)/documents/families/$(fid)).data; }
+
+    // Perfil de cada cuenta: solo su dueño
+    match /users/{uid} {
+      allow read, write: if signedIn() && request.auth.uid == uid;
+    }
+
+    // Códigos de familia: se pueden consultar uno por uno para unirse, nunca listar
+    match /codes/{code} {
+      allow get: if signedIn();
+      allow create: if signedIn() && request.resource.data.owner == request.auth.uid;
+      allow list, update, delete: if false;
+    }
+
+    match /families/{fid} {
+      allow create: if signedIn() && request.resource.data.owner == request.auth.uid;
+      allow read: if isMember(fid) || (signedIn() && resource.data.owner == request.auth.uid);
+      allow update: if isParent(fid) && request.resource.data.owner == resource.data.owner;
+      allow delete: if false;
+
+      // Miembros: el dueño entra como padre; los demás entran con el código correcto
+      match /members/{uid} {
+        allow read: if isMember(fid);
+        allow create: if signedIn() && uid == request.auth.uid && (
+          (request.resource.data.role == 'parent' && family(fid).owner == request.auth.uid) ||
+          (request.resource.data.code == family(fid).code && request.resource.data.role in ['student', 'parent'])
+        );
+        allow update: if false;
+        allow delete: if isParent(fid);
+      }
+
+      // Cada estudiante escribe solo su propio documento; la familia lo lee
+      match /students/{sid} {
+        allow read: if isMember(fid);
+        allow write: if isMember(fid) && sid == request.auth.uid;
+      }
+
+      // Mensajes entre familia y estudiante
+      match /notes/{id} {
+        allow read, create, update: if isMember(fid);
+        allow delete: if isParent(fid);
+      }
+
+      // Premios: los crea la familia; el estudiante solo marca cuándo lo logró
+      match /rewards/{id} {
+        allow read: if isMember(fid);
+        allow create, delete: if isParent(fid);
+        allow update: if isParent(fid) ||
+          (isMember(fid) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['achievedAt']));
+      }
+
+      // Configuración (PIN) y plan: solo madre o padre
+      match /meta/{docId} {
+        allow read: if isMember(fid);
+        allow write: if isParent(fid);
+      }
+
+      // Contadores de uso de IA: solo los escribe el servidor
+      match /usage/{id} {
+        allow read: if isMember(fid);
+        allow write: if false;
+      }
+    }
+  }
+}
