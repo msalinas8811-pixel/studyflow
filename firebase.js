@@ -1,8 +1,8 @@
 /* Conexión con Firebase: cuentas, base de datos y la función de IA.
    Los datos de tu proyecto se leen de firebase-config.js */
 import {initializeApp} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
-import {getAuth,onAuthStateChanged,signInWithEmailAndPassword,createUserWithEmailAndPassword,updateProfile,GoogleAuthProvider,signInWithPopup,signOut,sendPasswordResetEmail} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
-import {getFirestore,doc,collection,getDoc,setDoc,updateDoc,deleteDoc,addDoc,onSnapshot} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+import {getAuth,onAuthStateChanged,signInWithEmailAndPassword,createUserWithEmailAndPassword,updateProfile,GoogleAuthProvider,signInWithPopup,signOut,sendPasswordResetEmail,sendEmailVerification} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
+import {getFirestore,doc,collection,getDoc,getDocs,setDoc,updateDoc,deleteDoc,addDoc,onSnapshot,query,where} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 import {getFunctions,httpsCallable} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js';
 
 const cfg=window.FIREBASE_CONFIG||{};
@@ -14,9 +14,11 @@ if(!cfg.apiKey||/PEGA|TU_/.test(cfg.apiKey)){
   const app=initializeApp(cfg);
   const auth=getAuth(app),fs=getFirestore(app),fn=getFunctions(app,cfg.functionsRegion||'us-central1');
   const callAI=httpsCallable(fn,'ai',{timeout:130000});
+  const callAdmin=httpsCallable(fn,'admin',{timeout:60000});
+  const ADMIN_EMAILS=['msalinas8811@gmail.com'];
 
   const wrapDoc=d=>({id:d.id,exists:d.exists(),data:()=>d.data(),metadata:d.metadata});
-  const dbErr=e=>({code:e&&e.code==='permission-denied'?'invalid_argument':e&&e.code==='resource-exhausted'?'quota_exceeded':'unavailable',message:String(e&&e.message||e)});
+  const dbErr=e=>({code:e&&e.code==='permission-denied'?'permission-denied':e&&e.code==='resource-exhausted'?'quota_exceeded':e&&e.code==='invalid-argument'?'invalid_argument':'unavailable',message:String(e&&e.message||e)});
 
   /* Misma interfaz pequeña que usa la app, limitada a la familia */
   function scoped(fid){
@@ -30,6 +32,16 @@ if(!cfg.apiKey||/PEGA|TU_/.test(cfg.apiKey)){
       onSnapshot:(n,e)=>onSnapshot(c,s=>n({docs:s.docs.map(wrapDoc),size:s.size,empty:s.empty}),err=>e&&e(dbErr(err)))}};
     return{doc:dref,collection:cref};
   }
+
+  /* Acceso fuera de la familia (grupos de estudio, perfil propio): lo limitan las reglas de Firestore */
+  function rootDoc(path){const r=doc(fs,path);return{id:r.id,path,get:async()=>{try{return wrapDoc(await getDoc(r))}catch(e){throw dbErr(e)}},
+    set:d=>setDoc(r,d).catch(e=>{throw dbErr(e)}),update:d=>updateDoc(r,d).catch(e=>{throw dbErr(e)}),delete:()=>deleteDoc(r).catch(e=>{throw dbErr(e)}),
+    onSnapshot:(n,e)=>onSnapshot(r,s=>n(wrapDoc(s)),err=>e&&e(dbErr(err)))}}
+  function rootCollection(path){const c=collection(fs,path);return{path,doc:id=>rootDoc(path+'/'+(id||doc(c).id)),
+    add:async d=>{try{const r=await addDoc(c,d);return rootDoc(path+'/'+r.id)}catch(e){throw dbErr(e)}},
+    get:async()=>{try{const s=await getDocs(c);return{docs:s.docs.map(wrapDoc),size:s.size,empty:s.empty}}catch(e){throw dbErr(e)}},
+    onSnapshot:(n,e)=>onSnapshot(c,s=>n({docs:s.docs.map(wrapDoc),size:s.size,empty:s.empty}),err=>e&&e(dbErr(err)))}}
+  const root={doc:rootDoc,collection:rootCollection};
 
   const CH='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   const newCode=()=>Array.from(crypto.getRandomValues(new Uint8Array(6))).map(b=>CH[b%CH.length]).join('');
@@ -67,7 +79,7 @@ if(!cfg.apiKey||/PEGA|TU_/.test(cfg.apiKey)){
   }
   const aiErr=e=>{
     const c=e&&e.code||'',m=String(e&&e.message||'');
-    if(c.includes('resource-exhausted'))return{code:'rate_limited',message:m};
+    if(c.includes('resource-exhausted'))return{code:m==='limit'?'limit_reached':'rate_limited',message:m};
     if(c.includes('permission-denied'))return{code:m==='pro_required'?'pro_required':'not_granted',message:m};
     if(c.includes('unauthenticated'))return{code:'session_expired',message:m};
     if(c.includes('invalid-argument'))return{code:'invalid_request',message:m};
@@ -113,8 +125,20 @@ if(!cfg.apiKey||/PEGA|TU_/.test(cfg.apiKey)){
     profile:async uid=>{const d=await getDoc(doc(fs,'users',uid));return d.exists()?d.data():null},
     family:async fid=>{const d=await getDoc(doc(fs,'families',fid));return d.exists()?d.data():null},
     createFamily,joinFamily,
-    db:scoped,
+    db:scoped,root,
     sampler:sampler(),
-    email:()=>auth.currentUser&&auth.currentUser.email
+    email:()=>auth.currentUser&&auth.currentUser.email,
+    isAdminEmail:()=>!!(auth.currentUser&&ADMIN_EMAILS.includes(String(auth.currentUser.email||'').toLowerCase())),
+    admin:async(action,data)=>{
+      if(auth.currentUser)await auth.currentUser.getIdToken(true);
+      try{return (await callAdmin(Object.assign({action},data||{}))).data}catch(e){throw{code:String(e&&e.message||'error')}}
+    },
+    sendVerify:()=>sendEmailVerification(auth.currentUser),
+    reloadUser:()=>auth.currentUser.reload(),
+    billing:async()=>{try{const d=await getDoc(doc(fs,'public','billing'));return d.exists()?d.data():{}}catch(e){return {}}},
+    payReq:async(fid,o)=>{const uid=auth.currentUser.uid;
+      await addDoc(collection(fs,'payReqs'),{uid,familyId:fid,status:'pending',cycle:o.cycle,method:o.method,ref:o.ref,name:o.name,at:Date.now()})},
+    myPayReqs:async()=>{const uid=auth.currentUser.uid;
+      try{const q=await getDocs(query(collection(fs,'payReqs'),where('uid','==',uid)));return q.docs.map(d=>Object.assign({id:d.id},d.data()))}catch(e){return []}}
   });
 }
