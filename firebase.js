@@ -133,6 +133,9 @@ if(!cfg.apiKey||/PEGA|TU_/.test(cfg.apiKey)){
       if(auth.currentUser)await auth.currentUser.getIdToken(true);
       try{return (await callAdmin(Object.assign({action},data||{}))).data}catch(e){throw{code:String(e&&e.message||'error')}}
     },
+    teacherReq:async d=>(await httpsCallable(fn,'teacherReq',{timeout:30000})(d)).data,
+    teacherGet:async token=>(await httpsCallable(fn,'teacherGet',{timeout:20000})({token})).data,
+    teacherAnswer:async (token,result,comment)=>(await httpsCallable(fn,'teacherAnswer',{timeout:20000})({token,result,comment})).data,
     sendVerify:()=>sendEmailVerification(auth.currentUser),
     reloadUser:()=>auth.currentUser.reload(),
     billing:async()=>{try{const d=await getDoc(doc(fs,'public','billing'));return d.exists()?d.data():{}}catch(e){return {}}},
