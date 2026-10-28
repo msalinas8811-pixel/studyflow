@@ -1,7 +1,7 @@
 /* Conexión con Firebase: cuentas, base de datos y la función de IA.
    Los datos de tu proyecto se leen de firebase-config.js */
 import {initializeApp} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
-import {getAuth,onAuthStateChanged,signInWithEmailAndPassword,createUserWithEmailAndPassword,updateProfile,GoogleAuthProvider,signInWithPopup,signOut,sendPasswordResetEmail,sendEmailVerification} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
+import {getAuth,onAuthStateChanged,signInWithEmailAndPassword,createUserWithEmailAndPassword,updateProfile,GoogleAuthProvider,signInWithPopup,signOut,sendPasswordResetEmail,sendEmailVerification,EmailAuthProvider,reauthenticateWithCredential,updatePassword} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
 import {getFirestore,doc,collection,getDoc,getDocs,setDoc,updateDoc,deleteDoc,addDoc,onSnapshot,query,where} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 import {getFunctions,httpsCallable} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js';
 
@@ -142,6 +142,8 @@ if(!cfg.apiKey||/PEGA|TU_/.test(cfg.apiKey)){
       try{return (await callSchool(Object.assign({action},data||{}))).data}catch(e){throw{code:String(e&&e.message||'error')}}
     },
     sendVerify:()=>sendEmailVerification(auth.currentUser),
+    hasPassword:()=>!!(auth.currentUser&&auth.currentUser.providerData.some(p=>p.providerId==='password')),
+    changePassword:async(cur,np)=>{const u=auth.currentUser;await reauthenticateWithCredential(u,EmailAuthProvider.credential(u.email,cur));await updatePassword(u,np)},
     reloadUser:()=>auth.currentUser.reload(),
     billing:async()=>{try{const d=await getDoc(doc(fs,'public','billing'));return d.exists()?d.data():{}}catch(e){return {}}},
     payReq:async(fid,o)=>{const uid=auth.currentUser.uid;

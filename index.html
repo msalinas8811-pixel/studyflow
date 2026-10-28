@@ -4193,6 +4193,13 @@ function demoReduce(a,p){
       return {id:id};
     }
     case 'plat.use':D.cur=p.id;return {};
+    case 'plat.login':{
+      var xs=D.schools[p.id];need(xs&&p.email&&String(p.password||'').length>=8);
+      var ad=xs.staff.filter(function(z){return nrm(z.email)===nrm(p.email)})[0];
+      if(ad&&ad.role!=='admin'&&ad.role!=='director')throw {code:'exists'};
+      if(!ad){ad={id:'s'+uid(),role:'admin',name:p.name||'Administración',email:p.email,phone:'',grades:[]};xs.staff.push(ad)}
+      ad.access='active';return {email:p.email};
+    }
     case 'sch.profile':['name','responsible','address','phone','email','city','year','hours','motto'].forEach(function(k){if(p[k]!=null)s.profile[k]=String(p[k]).slice(0,120)});return {};
     case 'sch.code':s.profile.code=newSchoolCode();return {code:s.profile.code};
     case 'grade.save':{
@@ -4220,6 +4227,7 @@ function demoReduce(a,p){
       if(p.access&&st.email&&st.access!=='active')st.access='invited';if(!p.access&&st.access!=='active')st.access='none';
       return {id:st.id};
     }
+    case 'staff.login':{var sx=s.staff.filter(function(z){return z.id===p.id})[0];need(sx&&sx.email&&String(p.password||'').length>=8);sx.access='active';return {email:sx.email}}
     case 'staff.del':s.staff=s.staff.filter(function(x){return x.id!==p.id});s.grades.forEach(function(g){g.subjects.forEach(function(x){if(x.teacherId===p.id)x.teacherId=''})});return {};
     case 'req.approve':{
       var q=s.reqs.filter(function(x){return x.id===p.uid})[0];need(q);
@@ -4841,17 +4849,26 @@ function formStaff(id,role){
     '<div id="sfg"><label>Grados que atiende</label><div class="lvgrid" id="sfgl">'+schGrades().map(function(g){return '<label class="lvopt"><input type="checkbox" value="'+esc(g.id)+'"'+((x.grades||[]).indexOf(g.id)>=0?' checked':'')+'><span>'+esc(gName(g))+'</span></label>'}).join('')+'</div>'+
     '<p class="muted" style="font-size:13px">En cada grado puedes asignarle sus materias desde <b>Grados</b>.</p></div>'+
     '<label class="check" style="display:flex;gap:10px;align-items:flex-start;margin-top:14px;background:var(--primary-soft);padding:10px 12px;border-radius:11px"><input type="checkbox" id="sf5"'+(x.access!=='none'?' checked':'')+' style="width:20px;height:20px;flex:none;accent-color:var(--primary)"><span><b>Dar acceso a la app</b><br><span class="muted" style="font-size:13px">Cuando entre a StudyFlow con este correo, verá su panel '+(x.access==='active'?'(ya tiene acceso).':'.')+'</span></span></label>'+
+    '<div id="sfpw"><label for="sf7">'+(x.access==='active'?'Contraseña nueva (opcional)':'Contraseña inicial')+'</label><input id="sf7" type="text" maxlength="64" autocomplete="off" placeholder="Mínimo 8 caracteres">'+
+    '<p class="muted" style="font-size:13px">'+(x.access==='active'?'Escríbela solo si olvidó su contraseña.':'Con contraseña entra directo con «Entrar» y la cambia en ⚙️. Si la dejas vacía, recibe una invitación y entra con Google.')+'</p></div>'+
     '<div class="row" style="margin-top:16px">'+(id?'<button class="btn danger" id="sfdel">Quitar</button>':'')+'<button class="btn ghost" data-act="close" style="margin-left:auto">Cancelar</button><button class="btn" id="sfok">Guardar</button></div>');
   var sync=function(){var r=$('#sf1').value;$('#sfg').style.display=r==='teacher'?'':'none';$('#sfh').style.display=r==='nurse'?'':'none'};$('#sf1').onchange=sync;sync();
-  if(!id)$('#sf3').oninput=function(){$('#sf5').checked=!!this.value.trim()};
+  var pwv=function(){$('#sfpw').style.display=$('#sf5').checked&&!SAMPLE_NOPW()?'':'none'};
+  if(!id)$('#sf3').oninput=function(){$('#sf5').checked=!!this.value.trim();pwv()};
+  $('#sf5').onchange=pwv;pwv();
   $('#sfok').onclick=function(){
     var nm=$('#sf2').value.trim(),em=$('#sf3').value.trim().toLowerCase(),acc=$('#sf5').checked;
     if(!nm){toast('Escribe el nombre.');$('#sf2').focus();return}
     if(em&&!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)){toast('El correo no es válido.');$('#sf3').focus();return}
     if(acc&&!em){toast('Para dar acceso, escribe su correo.');$('#sf3').focus();return}
     var gl=Array.prototype.map.call(document.querySelectorAll('#sfgl input:checked'),function(z){return z.value});
+    var pw=acc?$('#sf7').value:'';
+    if(pw&&pw.length<8){toast('La contraseña debe tener al menos 8 caracteres.');$('#sf7').focus();return}
     this.disabled=true;var b=this;
-    schAct('staff.save',{id:id||'',role:$('#sf1').value,name:nm.slice(0,60),email:em,phone:$('#sf4').value.trim(),hours:$('#sf6').value.trim(),grades:gl,access:acc}).then(function(){closeModal();toast(acc&&x.access!=='active'?'Guardado ✅ Avísale que entre a StudyFlow con '+em+'.':'Guardado ✅')},function(){b.disabled=false});
+    schAct('staff.save',{id:id||'',role:$('#sf1').value,name:nm.slice(0,60),email:em,phone:$('#sf4').value.trim(),hours:$('#sf6').value.trim(),grades:gl,access:acc}).then(function(r){
+      if(pw)return schAct('staff.login',{id:r.id,password:pw}).then(function(){closeModal();loginInfo(nm,em,pw)},function(){closeModal()});
+      closeModal();toast(acc&&x.access!=='active'?'Guardado ✅ Avísale que entre a StudyFlow con '+em+'.':'Guardado ✅');
+    },function(){b.disabled=false});
   };
   if(id)$('#sfdel').onclick=function(){ask('Se quitará a '+x.name+' del colegio y perderá el acceso.','Quitar',function(){schAct('staff.del',{id:id}).then(function(){toast('Quitado')})})};
 }
@@ -4884,7 +4901,10 @@ function formPlatSchool(id){
     (id?'':'<label>Grados que ofrece</label><div class="lvgrid" id="plv">'+LEVELS.map(function(l){return '<label class="lvopt"><input type="checkbox" value="'+esc(l)+'"'+(/^\d\.º grado$/.test(l)?' checked':'')+'><span>'+esc(l)+'</span></label>'}).join('')+'</div>'+
       '<label for="p11">Secciones por grado</label><select id="p11"><option value="1">1 (A)</option><option value="2">2 (A y B)</option><option value="3">3 (A, B y C)</option></select>'+
       '<h4>Administrador del colegio</h4><p class="muted" style="margin:0">Recibirá acceso al panel del colegio cuando entre a StudyFlow con este correo.</p>'+
-      '<div class="grid2" style="margin:0"><div><label for="p12">Nombre</label><input id="p12" maxlength="60"></div><div><label for="p13">Correo</label><input id="p13" type="email" maxlength="80"></div></div>')+
+      '<div class="grid2" style="margin:0"><div><label for="p12">Nombre</label><input id="p12" maxlength="60"></div><div><label for="p13">Correo</label><input id="p13" type="email" maxlength="80"></div></div>'+
+      '<label for="p15">Contraseña inicial</label><input id="p15" type="text" maxlength="64" autocomplete="off" placeholder="Mínimo 8 caracteres">'+
+      '<p class="muted" style="font-size:13px">Con la contraseña, el colegio entra directo con «Entrar» y luego la cambia en ⚙️. Si la dejas vacía, la persona recibe una invitación y entra con Google.</p>')+
+    (id?adminAccessHtml(x):'')+
     '<label for="p14">Notas internas (opcional)</label><textarea id="p14" rows="2" maxlength="300">'+esc(x.notes||'')+'</textarea>'+
     '<div class="row" style="margin-top:16px"><button class="btn ghost" data-act="close" style="margin-left:auto">Cancelar</button><button class="btn" id="pok">Guardar</button></div>');
   $('#pok').onclick=function(){
@@ -4892,12 +4912,54 @@ function formPlatSchool(id){
     var ae=$('#p13')?$('#p13').value.trim().toLowerCase():'';if(ae&&!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(ae)){toast('El correo del administrador no es válido.');return}
     var o={id:id||'',name:nm,responsible:$('#p2').value.trim(),phone:$('#p3').value.trim(),email:$('#p4').value.trim(),address:$('#p5').value.trim(),city:$('#p6').value.trim(),
       seats:Math.max(1,parseInt($('#p7').value,10)||1),until:$('#p8').value,plan:$('#p9').value,status:$('#p10').value,notes:$('#p14').value.trim()};
+    var pw=$('#p15')?$('#p15').value:'';
+    if(pw&&pw.length<8){toast('La contraseña debe tener al menos 8 caracteres.');$('#p15').focus();return}
+    if(pw&&!ae){toast('Para crear la contraseña, escribe el correo del administrador.');$('#p13').focus();return}
     if(!id){o.levels=Array.prototype.map.call(document.querySelectorAll('#plv input:checked'),function(z){return z.value});o.sections=+$('#p11').value||1;o.adminName=$('#p12').value.trim();o.adminEmail=ae}
     this.disabled=true;var b=this;
-    schAct('plat.save',o).then(function(){closeModal();toast(id?'Colegio actualizado ✅':'Colegio registrado ✅');if(!SAMPLE){PLAT=null;platLoad()}},function(){b.disabled=false});
+    schAct('plat.save',o).then(function(r){
+      var done=function(){closeModal();if(!SAMPLE){PLAT=null;platLoad()}softRender()};
+      if(!id&&pw)return schAct('plat.login',{id:r.id,name:o.adminName,email:ae,password:pw}).then(function(){done();loginInfo(nm,ae,pw)},function(){done()});
+      done();toast(id?'Colegio actualizado ✅':'Colegio registrado ✅');
+    },function(){b.disabled=false});
+  };
+  var lb=$('#plog');if(lb)lb.onclick=function(){
+    var em=$('#pl1').value.trim().toLowerCase(),pw=$('#pl2').value,nm=$('#pl0').value.trim();
+    if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)){toast('Escribe un correo válido.');$('#pl1').focus();return}
+    if(pw.length<8){toast('La contraseña debe tener al menos 8 caracteres.');$('#pl2').focus();return}
+    lb.disabled=true;
+    schAct('plat.login',{id:id,name:nm,email:em,password:pw}).then(function(){closeModal();loginInfo(x.name,em,pw);if(!SAMPLE){PLAT=null;platLoad()}},function(){lb.disabled=false});
   };
 }
 
+function adminAccessHtml(x){
+  var ad=(x.admins||[]).concat(SAMPLE&&demo.sch.schools[x.id]?demo.sch.schools[x.id].staff.filter(function(z){return z.role==='admin'}):[]),a0=ad[0]||{};
+  return '<h4>Acceso del administrador</h4>'+(ad.length?'<p class="muted" style="margin:0">'+ad.map(function(z){return esc(z.name)+' · '+esc(z.email||'sin correo')+' · '+(z.access==='active'?'con acceso':z.access==='invited'?'invitación':'sin acceso')}).join('<br>')+'</p>':'')+
+    '<div class="grid2" style="margin:0"><div><label for="pl0">Nombre</label><input id="pl0" maxlength="60" value="'+esc(a0.name||'')+'"></div><div><label for="pl1">Correo</label><input id="pl1" type="email" maxlength="80" value="'+esc(a0.email||'')+'"></div></div>'+
+    '<label for="pl2">Contraseña nueva</label><input id="pl2" type="text" maxlength="64" autocomplete="off" placeholder="Mínimo 8 caracteres">'+
+    '<button type="button" class="btn ghost small" id="plog" style="margin-top:10px">Crear o cambiar contraseña</button>'+
+    '<p class="muted" style="font-size:13px">Úsalo para dar acceso con correo y contraseña, o si el colegio olvidó la suya.</p>';
+}
+function SAMPLE_NOPW(){return false}
+function loginInfo(school,em,pw){
+  var msg='Acceso a StudyFlow para '+school+'\nApp: '+(typeof appLink==='function'?appLink():location.href)+'\nCorreo: '+em+'\nContraseña: '+pw+'\nEntra con «Entrar» y cambia la contraseña en ⚙️ → Cambiar contraseña.';
+  openModal('<h3>✅ Acceso listo</h3><p class="muted" style="margin:0">Envíale estos datos. Por seguridad, pide que cambie la contraseña al entrar.</p>'+
+    '<div class="linkbox notr" style="white-space:pre-wrap">'+esc(msg)+'</div>'+
+    '<div class="row wrap" style="gap:8px;margin-top:12px"><a class="btn" href="https://wa.me/?text='+encodeURIComponent(msg)+'" target="_blank" rel="noopener">Enviar por WhatsApp</a><button class="btn ghost" id="licp">Copiar</button><button class="btn ghost" data-act="close" style="margin-left:auto">Cerrar</button></div>');
+  $('#licp').onclick=function(){copyText(msg,'Datos copiados ✅')};
+}
+function passwordModal(){
+  openModal('<h3>Cambiar contraseña</h3><label for="cp1">Contraseña actual</label><input id="cp1" type="password" autocomplete="current-password">'+
+    '<label for="cp2">Contraseña nueva</label><input id="cp2" type="password" autocomplete="new-password" placeholder="Mínimo 8 caracteres"><label for="cp3">Repite la contraseña nueva</label><input id="cp3" type="password" autocomplete="new-password">'+
+    '<div class="row" style="margin-top:16px"><button class="btn ghost" data-act="close">Cancelar</button><button class="btn" id="cpok" style="margin-left:auto">Guardar</button></div>');
+  $('#cpok').onclick=function(){
+    var a=$('#cp1').value,b=$('#cp2').value,c=$('#cp3').value;
+    if(b.length<8){toast('La contraseña nueva debe tener al menos 8 caracteres.');return}if(b!==c){toast('Las contraseñas nuevas no coinciden.');return}
+    var bt=this;bt.disabled=true;
+    F().changePassword(a,b).then(function(){closeModal();toast('Contraseña cambiada ✅')},function(e){bt.disabled=false;var k=String(e&&e.code||'');
+      toast(/wrong-password|invalid-credential/.test(k)?'La contraseña actual no es correcta.':/too-many/.test(k)?'Demasiados intentos. Espera unos minutos.':'No se pudo cambiar. Intenta de nuevo.')});
+  };
+}
 /* ---------- Ajustes para los modos del colegio ---------- */
 function schoolSettings(){
   var me=schMe(),s=SCH();
@@ -4906,6 +4968,7 @@ function schoolSettings(){
   else{
     out+='<h4>Cuenta</h4><p class="muted" style="margin:0 0 8px">'+esc((F()&&F().email&&F().email())||'')+'</p>';
     out+='<button class="btn ghost small" data-act="sc-switch" style="margin-right:8px">Cambiar de panel</button>';
+    if(F().hasPassword&&F().hasPassword())out+='<button class="btn ghost small" data-act="sc-pass" style="margin-right:8px">Cambiar contraseña</button>';
     out+='<button class="btn ghost small" data-act="logout">Cerrar sesión</button>';
   }
   out+='<div class="row" style="margin-top:18px"><button class="btn ghost" data-act="close" style="margin-left:auto">Cerrar</button></div>';
@@ -4973,6 +5036,7 @@ function schoolAction(a,id,el){
       if(!stu){toast('Elige al estudiante.');break}if(!txt){toast('Escribe el mensaje.');$('#nt').focus();break}
       el.disabled=true;schAct('nurse.send',{uid:stu,kind:kb?kb.dataset.k:'otro',text:txt.slice(0,500)}).then(function(){toast('Aviso enviado a la familia ✅');render()},function(){el.disabled=false});break;
     case 'sc-plat-new':formPlatSchool();break;
+    case 'sc-pass':passwordModal();break;
     case 'sc-plat-edit':formPlatSchool(id);break;
     case 'sc-plat-open':schAct('plat.use',{id:id}).then(function(){demoSetRole('school')});break;
     case 'sc-switch':closeModal();if(typeof staffPicker==='function')staffPicker();break;
