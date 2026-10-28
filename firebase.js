@@ -15,6 +15,7 @@ if(!cfg.apiKey||/PEGA|TU_/.test(cfg.apiKey)){
   const auth=getAuth(app),fs=getFirestore(app),fn=getFunctions(app,cfg.functionsRegion||'us-central1');
   const callAI=httpsCallable(fn,'ai',{timeout:130000});
   const callAdmin=httpsCallable(fn,'admin',{timeout:60000});
+  const callSchool=httpsCallable(fn,'school',{timeout:60000});
   const ADMIN_EMAILS=['msalinas8811@gmail.com'];
 
   const wrapDoc=d=>({id:d.id,exists:d.exists(),data:()=>d.data(),metadata:d.metadata});
@@ -40,7 +41,7 @@ if(!cfg.apiKey||/PEGA|TU_/.test(cfg.apiKey)){
   function rootCollection(path){const c=collection(fs,path);return{path,doc:id=>rootDoc(path+'/'+(id||doc(c).id)),
     add:async d=>{try{const r=await addDoc(c,d);return rootDoc(path+'/'+r.id)}catch(e){throw dbErr(e)}},
     get:async()=>{try{const s=await getDocs(c);return{docs:s.docs.map(wrapDoc),size:s.size,empty:s.empty}}catch(e){throw dbErr(e)}},
-    onSnapshot:(n,e)=>onSnapshot(c,s=>n({docs:s.docs.map(wrapDoc),size:s.size,empty:s.empty}),err=>e&&e(dbErr(err)))}}
+    onSnapshot:(n,e)=>onSnapshot(c,s=>n({docs:s.docs.map(wrapDoc),size:s.size,empty:s.empty,fromCache:s.metadata.fromCache}),err=>e&&e(dbErr(err)))}}
   const root={doc:rootDoc,collection:rootCollection};
 
   const CH='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -136,6 +137,10 @@ if(!cfg.apiKey||/PEGA|TU_/.test(cfg.apiKey)){
     teacherReq:async d=>(await httpsCallable(fn,'teacherReq',{timeout:30000})(d)).data,
     teacherGet:async token=>(await httpsCallable(fn,'teacherGet',{timeout:20000})({token})).data,
     teacherAnswer:async (token,result,comment)=>(await httpsCallable(fn,'teacherAnswer',{timeout:20000})({token,result,comment})).data,
+    school:async(action,data)=>{
+      if(auth.currentUser)await auth.currentUser.getIdToken(/^invite/.test(action));
+      try{return (await callSchool(Object.assign({action},data||{}))).data}catch(e){throw{code:String(e&&e.message||'error')}}
+    },
     sendVerify:()=>sendEmailVerification(auth.currentUser),
     reloadUser:()=>auth.currentUser.reload(),
     billing:async()=>{try{const d=await getDoc(doc(fs,'public','billing'));return d.exists()?d.data():{}}catch(e){return {}}},
