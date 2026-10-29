@@ -628,6 +628,25 @@ body.school .cal-d.sel{background:var(--sch)}
 @media (prefers-reduced-motion: reduce){.stile,.shero-e{animation:none}.stile.warn .st-b{animation:none}.stile:hover .st-e{animation:none}}
 nav.school{justify-content:center}
 @media (max-width:899px){nav.school button{max-width:120px}}
+/* Dashboard */
+.dgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:14px}
+@media (min-width:640px){.dgrid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.dgrid.in{margin:6px 0 4px}.dgrid.in .card{box-shadow:none;background:var(--bg);margin:0}
+.dgrid .card{margin:0}.card.stat.dk .big{font-size:26px}
+.dh{font-size:13px;font-weight:600;color:var(--muted);margin:16px 0 8px}
+.vbars{display:flex;align-items:flex-end;gap:8px;height:170px;padding-top:22px}
+.vbar{flex:1;min-width:0;height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;position:relative;outline:none}
+.vbar i{display:block;width:100%;max-width:44px;background:var(--primary);border-radius:4px 4px 0 0;transition:opacity .15s}
+.vbar b{font-weight:500;font-size:11.5px;color:var(--muted);margin-top:6px;white-space:nowrap}
+.vbar .dv{font-size:12px;font-weight:600;color:var(--text);margin-bottom:4px;visibility:hidden;white-space:nowrap}
+.vbar.lab .dv,.vbar:hover .dv,.vbar:focus .dv{visibility:visible}
+.vbars:hover .vbar i{opacity:.55}.vbars .vbar:hover i,.vbars .vbar:focus i{opacity:1}
+.hbars{display:flex;flex-direction:column;gap:8px}
+.hbar{display:grid;grid-template-columns:minmax(96px,34%) 1fr auto;align-items:center;gap:10px;font-size:13.5px}
+.hbar i{display:block;height:10px;border-radius:99px;background:var(--bg);overflow:hidden}
+.hbar i b{display:block;height:100%;background:var(--primary);border-radius:99px}
+.hbar em{font-style:normal;color:var(--muted);font-size:12.5px;white-space:nowrap}
+@media (max-width:520px){.dgrid.in .si{display:none}.dgrid.in .card{padding:14px}}
 </style>
 </head>
 <body>
@@ -654,7 +673,7 @@ var DAYS=['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
 var DEF={goal:70,pomo:25,brk:5,max:100,weekly:300,name:'',grade:''};
 var SNAV=[['home','home','Inicio'],['cal','calendar','Calendario'],['study','sparkle','Estudiar'],['groups','trophy','Retos'],['casa','casa','Casa'],['progress','trend','Progreso']];
 var PNAV=[['p_home','trend','Resumen'],['p_act','clipboard','Actividad'],['p_help','heart','Apoyar'],['p_casa','casa','Casa'],['p_rewards','gift','Premios']];
-var titles={cal:'Calendario',s_home:'Resumen',s_cal:'Calendario',s_grades:'Grados',s_students:'Alumnos',s_staff:'Personal',s_profile:'Colegio',t_cal:'Calendario',t_grades:'Mis grados',n_send:'Enfermería',n_hist:'Historial',pl_home:'Colegios',home:'Inicio',tasks:'Tareas',subjects:'Temario y materias',grades:'Notas',study:'Estudio',tutor:'Tutor de IA',groups:'Retos',casa:'Tareas de la casa',p_casa:'Tareas de la casa',progress:'Progreso',
+var titles={cal:'Calendario',s_home:'Resumen',s_cal:'Calendario',s_grades:'Grados',s_students:'Alumnos',s_staff:'Personal',s_profile:'Colegio',t_cal:'Calendario',t_grades:'Mis grados',n_send:'Enfermería',n_hist:'Historial',pl_home:'Colegios',pl_dash:'Dashboard',home:'Inicio',tasks:'Tareas',subjects:'Temario y materias',grades:'Notas',study:'Estudio',tutor:'Tutor de IA',groups:'Retos',casa:'Tareas de la casa',p_casa:'Tareas de la casa',progress:'Progreso',
   p_home:'Resumen',p_act:'Actividad',p_help:'Apoyar',p_rewards:'Premios'};
 var KINDS={felicitacion:['🎉','Felicitación','star'],libro:['📚','Libro o recurso','book'],consejo:['💡','Ayuda en un tema','bulb'],recordatorio:['⏰','Recordatorio','clock'],premio:['🎁','Premio','gift'],pro:['🚀','Plan Pro','star'],solicitud:['🙋','Solicitud','hand']};
 
@@ -956,7 +975,7 @@ function schoolOnboardHtml(){
   return out;
 }
 function enterPlatform(){
-  unsubAll();schReset();DB=null;CLOUD='on';AUTH.st='in';MODE='platform';view='pl_home';lsSet('sf.panel','platform');
+  unsubAll();schReset();DB=null;CLOUD='on';AUTH.st='in';MODE='platform';view='pl_dash';PSTAT=null;lsSet('sf.panel','platform');
   render();window.scrollTo(0,0);
 }
 function enterSchool(e){
@@ -1552,7 +1571,7 @@ function render(){
   else chip.innerHTML=MODE==='parent'?'<span class="ava">'+esc(parentAvatar())+'</span><span class="nm">'+esc(parentName())+'</span>'+ic('gear'):'<span class="ava">'+esc(studentAvatar())+'</span><span class="nm">'+esc(nameOf())+'</span>'+ic('gear');
   $('#hTitle').textContent=viewTitle();
   $('#fab').style.display=fabOn()?'block':'none';
-  var fn={cal:vCal,subj:vSubj,s_home:vSchHome,s_cal:vSchCal,s_grades:vSchGrades,s_students:vSchStudents,s_staff:vSchStaff,s_profile:vSchProfile,t_cal:vSchCal,t_grades:vTeacherGrades,n_send:vNurseSend,n_hist:vNurseHist,pl_home:vPlat,home:vHomeV2,tasks:vTasks,subjects:vSubjects,grades:vGrades,study:vStudy,tutor:vTutor,groups:vGroups,casa:vCasa,progress:vProgress,
+  var fn={cal:vCal,subj:vSubj,s_home:vSchHome,s_cal:vSchCal,s_grades:vSchGrades,s_students:vSchStudents,s_staff:vSchStaff,s_profile:vSchProfile,t_cal:vSchCal,t_grades:vTeacherGrades,n_send:vNurseSend,n_hist:vNurseHist,pl_home:vPlat,pl_dash:vPlatDash,home:vHomeV2,tasks:vTasks,subjects:vSubjects,grades:vGrades,study:vStudy,tutor:vTutor,groups:vGroups,casa:vCasa,progress:vProgress,
     p_home:pHome,p_casa:pCasa,p_act:pAct,p_help:pHelp,p_rewards:pRewards}[view];
   if(typeof preRenderHook==='function')preRenderHook();
   $('#view').innerHTML=banner()+hubTabs()+parentActBar()+fn();
@@ -4401,7 +4420,7 @@ function navItems(){
   if(MODE==='school')return [['s_home','home','Resumen'],['s_cal','calendar','Calendario'],['s_grades','book','Grados'],['s_students','student','Alumnos'],['s_staff','users','Personal'],['s_profile','school','Colegio']];
   if(MODE==='teacher')return [['t_cal','calendar','Calendario'],['t_grades','book','Mis grados']];
   if(MODE==='nurse')return [['n_send','nurse','Avisos'],['n_hist','list','Historial']];
-  if(MODE==='platform')return [['pl_home','school','Colegios']];
+  if(MODE==='platform')return [['pl_dash','chart','Dashboard'],['pl_home','school','Colegios']];
   return SNAV;
 }
 function navActive(){return NAVMAP[view]||view}
@@ -4979,6 +4998,67 @@ function passwordModal(){
       toast(/wrong-password|invalid-credential/.test(k)?'La contraseña actual no es correcta.':/too-many/.test(k)?'Demasiados intentos. Espera unos minutos.':'No se pudo cambiar. Intenta de nuevo.')});
   };
 }
+/* ---------- Dashboard de la plataforma ---------- */
+var PSTAT=null;
+function platStatsDemo(){
+  var ms=[],b=new Date();for(var i=5;i>=0;i--){var d=new Date(b.getFullYear(),b.getMonth()-i,1);ms.push(d.getFullYear()+'-'+remPad(d.getMonth()+1))}
+  var sc=platList(),seats=sc.reduce(function(a,x){return a+(+x.seats||0)},0),stu=sc.reduce(function(a,x){return a+(x.students||0)},0),stf={director:0,admin:0,nurse:0,teacher:0},act=0;
+  Object.keys(demo.sch.schools).forEach(function(k){demo.sch.schools[k].staff.forEach(function(x){if(stf[x.role]!=null)stf[x.role]++;if(x.access==='active')act++})});
+  var ev=0;Object.keys(demo.sch.schools).forEach(function(k){var e=demo.sch.schools[k].events;Object.keys(e).forEach(function(g){ev+=e[g].length})});
+  return {at:Date.now(),months:ms,famByMonth:[4,7,11,16,24,31],families:93,students:118,parents:131,schoolStudents:stu,staffBy:stf,staffActive:act,schools:sc.length,schoolsActive:sc.filter(function(x){return x.status!=='suspended'}).length,
+    schoolsTrial:sc.filter(function(x){return x.status==='trial'}).length,expiring:sc.filter(function(x){return x.until&&diffDays(x.until)>=0&&diffDays(x.until)<=30}).length,seats:seats,events:ev,nurse:demo.sch.schools.sch_demo.nurse.length,pendingPays:3,groups:12,
+    use:{active7:71,active30:102,tasks:2140,done:1530,onTime:1288,bySchool:960,byParent:214,byStudent:966,reminders:1835,studyMin7:6420,topics:880,quizzes:310,subjects:612,grades:1410,overdue:96},
+    ai:[[120,1.1],[240,2.0],[410,3.4],[560,4.6],[780,6.3],[930,7.5]].map(function(x,i){return {month:ms[i],calls:x[0],cost:x[1],byKind:{tutor:Math.round(x[0]*.55),quiz:Math.round(x[0]*.25),temario:Math.round(x[0]*.12),otros:Math.round(x[0]*.08)}}}),
+    income:184.5,paysMonth:41,activePro:58,demo:true};
+}
+function platStatsLoad(force){
+  if(SAMPLE){PSTAT=platStatsDemo();return}
+  if(SC.sbusy||(PSTAT&&!force))return;SC.sbusy=true;
+  F().school('plat.stats',{}).then(function(r){PSTAT=r;SC.sbusy=false;softRender()},function(e){SC.sbusy=false;toast(schErr(e));PSTAT=PSTAT||{err:true};softRender()});
+}
+function nfmt(n){return Number(n||0).toLocaleString(LOC)}
+function pctOf(a,b){return b?Math.round(a/b*100):0}
+function monthShort(m){var p=String(m).split('-');return new Date(+p[0],+p[1]-1,1).toLocaleDateString(LOC,{month:'short'}).replace('.','')}
+function kpi(label,val,sub,icon){return '<div class="card stat dk"><span class="si">'+ic(icon||'chart')+'</span><div class="muted">'+label+'</div><div class="big">'+val+'</div>'+(sub?'<div class="muted">'+sub+'</div>':'')+'</div>'}
+/* Barras verticales de una sola serie: se rotulan el último valor y el mayor; los demás al pasar el dedo o el ratón */
+function vbars(labels,vals,fmt){
+  var mx=Math.max.apply(null,vals.concat([1])),last=vals.length-1,imax=vals.indexOf(Math.max.apply(null,vals));fmt=fmt||nfmt;
+  return '<div class="vbars" role="img" aria-label="'+esc(labels.map(function(l,i){return l+': '+fmt(vals[i])}).join(', '))+'">'+vals.map(function(v,i){
+    return '<div class="vbar'+(i===last||i===imax?' lab':'')+'" tabindex="0"><span class="dv">'+fmt(v)+'</span><i style="height:'+Math.max(2,Math.round(v/mx*100))+'%"></i><b>'+esc(labels[i])+'</b></div>'}).join('')+'</div>';
+}
+function hbars(rows){
+  var tot=rows.reduce(function(a,r){return a+r[1]},0)||1;
+  return '<div class="hbars">'+rows.map(function(r){return '<div class="hbar"><span>'+esc(r[0])+'</span><i><b style="width:'+Math.max(r[1]?2:0,Math.round(r[1]/tot*100))+'%"></b></i><em>'+nfmt(r[1])+' · '+pctOf(r[1],tot)+'%</em></div>'}).join('')+'</div>';
+}
+function vPlatDash(){
+  if(!PSTAT)platStatsLoad();
+  var st=PSTAT;
+  if(!st)return '<div class="card"><div class="empty">Cargando el dashboard…</div></div>';
+  if(st.err)return '<div class="card"><div class="empty">No se pudo cargar. Revisa que el servidor esté publicado.</div><button class="btn block" data-act="pd-refresh">Intentar de nuevo</button></div>';
+  var u=st.use||{},ai=st.ai||[],m=ai[ai.length-1]||{byKind:{}},ai6=ai.reduce(function(a,x){return a+(x.cost||0)},0),labels=(st.months||[]).map(monthShort),staffN=Object.keys(st.staffBy||{}).reduce(function(a,k){return a+st.staffBy[k]},0);
+  var out='<div class="row between wrap" style="margin-bottom:10px;gap:8px"><div class="muted">'+(st.demo?'Datos de ejemplo · ':'')+'Actualizado '+esc(ago(st.at))+'</div><button class="btn ghost small" data-act="pd-refresh">'+ic('trend')+'Actualizar</button></div>';
+  out+='<div class="dgrid">'+kpi('Familias',nfmt(st.families),'+'+nfmt((st.famByMonth||[]).slice(-1)[0])+' este mes','users')+kpi('Estudiantes',nfmt(st.students),nfmt(u.active7)+' activos en 7 días','student')+
+    kpi('Padres y madres',nfmt(st.parents),'','heart')+kpi('Colegios',nfmt(st.schools),nfmt(st.schoolsActive)+' activos · '+nfmt(st.schoolsTrial)+' en prueba','school')+
+    kpi('Alumnos de colegios',nfmt(st.schoolStudents),st.seats?pctOf(st.schoolStudents,st.seats)+'% de '+nfmt(st.seats)+' cupos':'','book')+kpi('Personal de colegios',nfmt(staffN),nfmt(st.staffActive)+' con acceso','users')+'</div>';
+  out+='<div class="card"><h2>'+ic('trend')+'Familias nuevas por mes</h2>'+vbars(labels,st.famByMonth||[])+'</div>';
+  out+='<div class="card"><h2>'+ic('check')+'Uso de la app</h2><div class="dgrid in">'+
+    kpi('Actividades',nfmt(u.tasks),pctOf(u.done,u.tasks)+'% completadas','check')+kpi('Entregadas a tiempo',pctOf(u.onTime,u.done)+'%',nfmt(u.overdue)+' vencidas sin hacer','clock')+
+    kpi('Recordatorios',nfmt(u.reminders),'','clock')+kpi('Estudio (7 días)',nfmt(Math.round((u.studyMin7||0)/60))+' h',nfmt(u.studyMin7)+' min','timer')+
+    kpi('Temas del temario',nfmt(u.topics),nfmt(u.quizzes)+' con mini examen','bookopen')+kpi('Notas registradas',nfmt(u.grades),nfmt(u.subjects)+' materias','grades')+'</div>'+
+    '<h3 class="dh">¿Quién agrega las actividades?</h3>'+hbars([['🧑‍🏫 Docentes',u.bySchool||0],['👨‍👩‍👧 Familias',u.byParent||0],['🧑‍🎓 Estudiantes',u.byStudent||0]])+'</div>';
+  out+='<div class="card"><h2>'+ic('sparkle')+'Inteligencia artificial</h2><div class="dgrid in">'+kpi('Preguntas este mes',nfmt(m.calls),'','sparkle')+kpi('Costo este mes','$'+(m.cost||0).toFixed(2),'6 meses: $'+ai6.toFixed(2),'chart')+'</div>'+
+    '<h3 class="dh">Preguntas por mes</h3>'+vbars(labels,ai.map(function(x){return x.calls||0}))+
+    '<h3 class="dh">Para qué la usan este mes</h3>'+hbars([['Tutor',m.byKind.tutor||0],['Mini exámenes',m.byKind.quiz||0],['Temarios',m.byKind.temario||0],['Otros',m.byKind.otros||0]])+'</div>';
+  out+='<div class="card"><h2>'+ic('gift')+'Pagos y plan Pro</h2><div class="dgrid in">'+kpi('Ingresos del mes','$'+(st.income||0).toFixed(2),nfmt(st.paysMonth)+' pagos','gift')+kpi('Familias con Pro',nfmt(st.activePro),'por pago','star')+
+    kpi('Avisos de pago','<span'+(st.pendingPays?' style="color:var(--warn-text)"':'')+'>'+nfmt(st.pendingPays)+'</span>','por revisar','alert')+kpi('Ganancia aprox.','$'+Math.max(0,(st.income||0)-(m.cost||0)).toFixed(2),'ingresos − IA del mes','trend')+'</div>'+
+    (!SAMPLE&&st.pendingPays?'<button class="btn small" data-act="adm-open" style="margin-top:6px">Revisar pagos</button>':'')+'</div>';
+  out+='<div class="card"><h2>'+ic('school')+'Colegios</h2><div class="dgrid in">'+kpi('Licencias por vencer',nfmt(st.expiring),'en 30 días o menos','alert')+kpi('Entradas de calendario',nfmt(st.events),'tareas, exámenes y avisos','calendar')+
+    kpi('Avisos de enfermería',nfmt(st.nurse),'enviados a familias','heart')+kpi('Grupos de retos',nfmt(st.groups),'entre familias','trophy')+'</div>'+
+    '<h3 class="dh">Personal por cargo</h3>'+hbars([['🧑‍🏫 Docentes',(st.staffBy||{}).teacher||0],['🎓 Dirección',(st.staffBy||{}).director||0],['🗂️ Administración',(st.staffBy||{}).admin||0],['🩺 Enfermería',(st.staffBy||{}).nurse||0]])+
+    '<button class="btn ghost small" data-v="pl_home" style="margin-top:10px">Ver y administrar colegios →</button></div>';
+  return out;
+}
+
 /* ---------- Ajustes para los modos del colegio ---------- */
 function schoolSettings(){
   var me=schMe(),s=SCH();
@@ -5171,6 +5251,7 @@ function schoolAction(a,id,el){
       el.disabled=true;schAct('nurse.send',{uid:stu,kind:kb?kb.dataset.k:'otro',text:txt.slice(0,500)}).then(function(){toast('Aviso enviado a la familia ✅');render()},function(){el.disabled=false});break;
     case 'sc-plat-new':formPlatSchool();break;
     case 'sc-pass':passwordModal();break;
+    case 'pd-refresh':PSTAT=null;platStatsLoad(true);render();break;
     case 'pt-new':parentTaskForm();break;
     case 'pt-edit':closeModal();parentTaskForm(id);break;
     case 'pt-rem':closeModal();parentRemForm(id);break;
