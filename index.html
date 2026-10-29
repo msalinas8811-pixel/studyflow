@@ -4334,6 +4334,12 @@ function demoReduce(a,p){
       return {id:e.id};
     }
     case 'sch.addType':{need(p.name);s.profile.types=(s.profile.types||[]).concat([{name:String(p.name).slice(0,30),emoji:p.emoji||'🗂️'}]).slice(0,30);return {}}
+    case 'ev.bulk':{
+      if(MODE==='teacher'&&!canEditGrade(p.gradeId))throw {code:'forbidden'};
+      var lb=s.events[p.gradeId];need(lb&&(p.items||[]).length);var mb=schMe();
+      p.items.slice(0,60).forEach(function(it){lb.push({id:'e'+uid(),type:'tema',title:String(it.title).slice(0,120),subjectId:p.subjectId,date:it.date,time:'',note:'',by:mb?mb.id:'',byName:mb?mb.name:'',at:Date.now()})});
+      return {};
+    }
     case 'ev.del':s.events[p.gradeId]=(s.events[p.gradeId]||[]).filter(function(x){return x.id!==p.id});return {};
     case 'nurse.send':{
       var m=s.members.filter(function(x){return x.id===p.uid})[0];need(m&&p.text);var me2=schMe(),k=NURSE_KINDS.filter(function(x){return x[0]===p.kind})[0]||NURSE_KINDS[5];
@@ -4852,11 +4858,11 @@ function platLoad(){
 }
 
 /* ---------- Formularios ---------- */
-function formEvent(gid,eid){
+function formEvent(gid,eid,pre){
   var g=schGrade(gid||SC.gsel);if(!g){toast('Primero elige un grado.');return}
   if(!canEditGrade(g.id)){toast(schErr({code:'forbidden'}));return}
   var e=eid?schEvents(g.id).filter(function(x){return x.id===eid})[0]:null;
-  e=e||{type:'tarea',title:'',subjectId:'',date:CAL.d&&CAL.d>=ymd(new Date())?CAL.d:ymd(new Date()),time:'',note:''};
+  e=e||{type:(pre&&pre.type)||'tarea',title:'',subjectId:(pre&&pre.subjectId)||'',date:CAL.d&&CAL.d>=ymd(new Date())?CAL.d:ymd(new Date()),time:'',note:''};
   var sl=teacherSubjects(g);
   openModal('<h3>'+(eid?'Editar':'Agregar al calendario')+' · '+esc(gName(g))+'</h3>'+
     '<label>Tipo</label><div class="chips" id="evt">'+Object.keys(EVT).map(function(k){return '<button type="button" class="chipb'+(k===e.type?' on':'')+'" data-k="'+k+'">'+EVT[k][0]+' '+EVT[k][1]+'</button>'}).join('')+
@@ -5157,10 +5163,40 @@ function vTeacherDash(){
   out+='<div class="card"><h2>'+ic('student')+'Alumnos en '+esc(c.sj.name)+'</h2><div class="ptable"><div class="pt-h"><span>Alumno</span><span>Prom.</span><span>A tiempo</span><span title="Tareas vencidas">⏰</span><span>Estudio</span></div>'+
     rows.map(function(r){var o=r.o,risk=o&&((o.avg!=null&&o.avg<60)||o.late>=2);return '<div class="pt-r'+(risk?' risk':'')+'"><span>'+esc(r.m.name)+(o?'':' <em>· sin datos</em>')+'</span><span>'+sc10(o&&o.avg)+'</span><span>'+pctTxt(onTimePct(o))+'</span><span>'+(o?o.late:'—')+'</span><span>'+(o?o.min7+' min':'—')+'</span></div>'}).join('')+'</div>'+
     '<p class="muted" style="font-size:12.5px;margin:8px 0 0">En rojo: promedio bajo (menos de 6) o 2 o más tareas vencidas.</p></div>';
-  var evs=schEvents(c.g.id).filter(function(e){return e.subjectId===c.sj.id}).sort(function(a,b){return a.date<b.date?-1:1}),up=evs.filter(function(e){return diffDays(e.date)>=0}),past=evs.filter(function(e){return diffDays(e.date)<0}).reverse();
+  var evs=schEvents(c.g.id).filter(function(e){return e.subjectId===c.sj.id&&e.type!=='tema'}).sort(function(a,b){return a.date<b.date?-1:1}),up=evs.filter(function(e){return diffDays(e.date)>=0}),past=evs.filter(function(e){return diffDays(e.date)<0}).reverse();
   out+='<div class="card"><div class="row between"><h2 style="margin:0">'+ic('calendar')+'Próximas en '+esc(c.sj.name)+'</h2><button class="btn small" data-act="sc-tnew">+ Agregar</button></div>'+(up.length?up.slice(0,10).map(function(e){return evRow(e,c.g,false)}).join(''):'<div class="empty">Sin actividades próximas.</div>')+'</div>';
   if(past.length)out+='<div class="card"><h2>Ya pasaron</h2>'+past.slice(0,8).map(function(e){return evRow(e,c.g,false)}).join('')+'</div>';
-  return out;
+  return out.replace('<div class="card"><div class="row between"><h2 style="margin:0">'+ic('calendar')+'Próximas','<!--tem-->'+temarioCard(c.g,c.sj)+'<div class="card"><div class="row between"><h2 style="margin:0">'+ic('calendar')+'Próximas');
+}
+/* ---------- Temario por materia y grado (lo carga el docente) ---------- */
+function temarioCard(g,sj){
+  var tl=schEvents(g.id).filter(function(e){return e.type==='tema'&&e.subjectId===sj.id}).sort(function(a,b){return a.date<b.date?-1:a.date>b.date?1:0});
+  var w0=mondayOf(new Date()),out='<div class="card"><div class="row between wrap" style="gap:8px"><h2 style="margin:0">📚 Temario de '+esc(sj.name)+'</h2>'+
+    '<div class="row" style="gap:6px"><button class="btn ghost small" data-act="sc-tem1">+ Un tema</button><button class="btn small" data-act="sc-tembulk">Cargar temario</button></div></div>'+
+    '<p class="muted" style="margin:6px 0 0">Los temas les aparecen a los alumnos de '+esc(gName(g))+' en su temario, semana por semana, para estudiarlos con el tutor de IA y hacer mini exámenes.</p>';
+  if(!tl.length)return out+'<div class="empty">Todavía no hay temas. Toca «Cargar temario» y pega la lista completa: la app la reparte por semanas.</div></div>';
+  var lw='';
+  tl.forEach(function(e){var wk=mondayOf(parseD(e.date));if(wk!==lw){lw=wk;out+='<div class="group">'+(wk===w0?'Esta semana · ':'')+'Semana '+esc(weekLabel(wk))+'</div>'}
+    out+='<div class="item" data-act="sc-ev-edit" data-id="'+esc(g.id+'|'+e.id)+'" style="cursor:pointer"><span class="evi">📚</span><div class="grow"><div class="title">'+esc(e.title)+'</div>'+(e.note?'<div class="muted">'+esc(e.note)+'</div>':'')+'</div>'+ic('chevr')+'</div>'});
+  return out+'</div>';
+}
+function formTemarioBulk(g,sj){
+  var w0=mondayOf(new Date());
+  openModal('<h3>Cargar temario · '+esc(sj.name)+' · '+esc(gName(g))+'</h3><p class="muted" style="margin:0">Pega un tema por línea (puedes copiarlo del plan de estudio). La app los reparte por semanas; luego puedes corregir cualquiera.</p>'+
+    '<label for="tb1">Temas</label><textarea id="tb1" rows="8" placeholder="Ej.\nUnidad 3: Ecuaciones\nEcuaciones de primer grado\nDespeje de variables\nProblemas con ecuaciones"></textarea>'+
+    '<div class="grid2" style="margin:0"><div><label for="tb2">Empieza la semana del</label><input type="date" id="tb2" value="'+w0+'"></div><div><label for="tb3">Temas por semana</label><select id="tb3"><option>1</option><option selected>2</option><option>3</option><option>4</option><option>5</option></select></div></div>'+
+    '<div class="muted" id="tbp" style="margin-top:8px"></div>'+
+    '<div class="row" style="margin-top:16px"><button class="btn ghost" data-act="close">Cancelar</button><button class="btn" id="tbok" style="margin-left:auto">Guardar temas</button></div>');
+  var parse=function(){return $('#tb1').value.split(/\n+/).map(function(l){return l.replace(/^\s*([-•*·]|\d+[.)-]|[a-zA-Z][.)])\s*/,'').trim()}).filter(function(l){return l.length>1}).slice(0,60)};
+  var plan=function(){var l=parse(),per=+$('#tb3').value||1,st=$('#tb2').value?mondayOf(parseD($('#tb2').value)):w0;
+    return l.map(function(t,i){return {title:t.slice(0,120),date:shift(st,Math.floor(i/per)*7)}})};
+  var prev=function(){var p=plan();$('#tbp').textContent=p.length?p.length+' '+plural(p.length,'tema','temas')+' en '+Math.ceil(p.length/(+$('#tb3').value||1))+' semanas (hasta la semana del '+weekLabel(p[p.length-1].date)+').':''};
+  ['#tb1','#tb2','#tb3'].forEach(function(q){$(q).addEventListener('input',prev);$(q).addEventListener('change',prev)});
+  $('#tbok').onclick=function(){
+    var p=plan();if(!p.length){toast('Pega al menos un tema.');$('#tb1').focus();return}
+    this.disabled=true;var b=this;
+    schAct('ev.bulk',{gradeId:g.id,subjectId:sj.id,items:p}).then(function(){closeModal();toast(p.length+' '+plural(p.length,'tema guardado','temas guardados')+' 📚')},function(){b.disabled=false});
+  };
 }
 /* ---------- Familia y estudiante: boletín del colegio ---------- */
 function boletinCard(){
@@ -5443,6 +5479,8 @@ function schoolAction(a,id,el){
     case 'sc-pass':passwordModal();break;
     case 'sc-pgrade':SC.pgrade=id;render();window.scrollTo(0,0);break;
     case 'sc-tsel':SC.tsel=id;render();break;
+    case 'sc-tem1':var t1=String(SC.tsel||'').split('|');formEvent(t1[0],'',{type:'tema',subjectId:t1[1]});break;
+    case 'sc-tembulk':var t2=String(SC.tsel||'').split('|'),g2=schGrade(t2[0]),s2=g2&&(g2.subjects||[]).filter(function(x){return x.id===t2[1]})[0];if(g2&&s2)formTemarioBulk(g2,s2);break;
     case 'sc-tnew':var tp=String(SC.tsel||'').split('|');SC.gsel=tp[0];formEvent(tp[0]);setTimeout(function(){var se=$('#ev2');if(se&&tp[1])se.value=tp[1]},30);break;
     case 'pd-refresh':PSTAT=null;platStatsLoad(true);render();break;
     case 'pt-new':parentTaskForm();break;
