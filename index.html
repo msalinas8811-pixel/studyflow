@@ -992,6 +992,12 @@ function schoolFamilyHook(p){
   schReset();
   if(!F().root||!AUTH.user)return;
   if(MODE==='student')unsubs.push(F().root.doc('users/'+AUTH.user.uid).onSnapshot(function(d){stuLinkSync(d.exists?d.data().school:null)},function(){}));
+  TOPS=[];
+  unsubs.push(DB.collection('taskOps').onSnapshot(function(q){
+    var l=q.docs.map(function(d){return Object.assign({id:d.id},d.data())});
+    if(MODE==='student'){applyFamOps(l).forEach(function(id){DB.doc('taskOps/'+id).delete().catch(function(){})});softRender()}
+    else{var ids={};l.forEach(function(o){ids[o.id]=1});TOPS.forEach(function(o){if(!ids[o.id])rememberOp(o)});TOPS=l;softRender()}
+  },function(){}));
   if(MODE==='parent')unsubs.push(DB.collection('schoolNotes').onSnapshot(function(q){SNOTES=q.docs.map(function(d){return Object.assign({id:d.id},d.data())});softRender()},function(){}));
   unsubs.push(DB.doc('meta/school').onSnapshot(function(d){
     var ids=Object.keys((d.exists&&d.data().schools)||{}).slice(0,5);SCHOOL_PRO=false;
@@ -1042,6 +1048,18 @@ function schoolCloudAction(a,id,el){
   }
   if(a==='sc-verify'){F().sendVerify().then(function(){toast('Te enviamos un correo. Abre el enlace y vuelve aquí.')},function(){toast('No se pudo enviar el correo. Intenta más tarde.')});return}
   if(a==='sc-reload'){F().reloadUser().then(function(){loadInvites();toast('Revisando…')},function(){});return}
+}
+
+/* Familia: lo que la familia cambió todavía no llega al celular del estudiante, pero ya se ve aquí */
+var RECENT=[];
+/* Un cambio recién hecho se sigue mostrando un rato, hasta que llega la copia actualizada del estudiante */
+function rememberOp(o){RECENT=RECENT.filter(function(x){return x.op.id!==o.id&&x.until>Date.now()});RECENT.push({op:o,until:Date.now()+120000})}
+function preRenderHook(){
+  if(MODE!=='parent'||SAMPLE||!curSid||!S||!S.tasks)return;
+  var ids={},all=TOPS.slice();TOPS.forEach(function(o){ids[o.id]=1});
+  RECENT=RECENT.filter(function(x){return x.until>Date.now()});RECENT.forEach(function(x){if(!ids[x.op.id])all.push(x.op)});
+  if(!all.length)return;
+  all.filter(function(o){return o.student===curSid}).sort(function(a,b){return (a.at||0)-(b.at||0)}).forEach(function(o){applyOp(S,o)});
 }
 
 function authErr(e){
@@ -1536,7 +1554,8 @@ function render(){
   $('#fab').style.display=fabOn()?'block':'none';
   var fn={cal:vCal,subj:vSubj,s_home:vSchHome,s_cal:vSchCal,s_grades:vSchGrades,s_students:vSchStudents,s_staff:vSchStaff,s_profile:vSchProfile,t_cal:vSchCal,t_grades:vTeacherGrades,n_send:vNurseSend,n_hist:vNurseHist,pl_home:vPlat,home:vHomeV2,tasks:vTasks,subjects:vSubjects,grades:vGrades,study:vStudy,tutor:vTutor,groups:vGroups,casa:vCasa,progress:vProgress,
     p_home:pHome,p_casa:pCasa,p_act:pAct,p_help:pHelp,p_rewards:pRewards}[view];
-  $('#view').innerHTML=banner()+hubTabs()+fn();
+  if(typeof preRenderHook==='function')preRenderHook();
+  $('#view').innerHTML=banner()+hubTabs()+parentActBar()+fn();
   translateTree(document.querySelector('header'));translateTree($('#nav'));translateTree($('#view'));
   if(view==='study')bindTimer();
   afterRender();if(MODE==='student'&&view==='home')checkLevelUp();
@@ -1590,7 +1609,7 @@ function remPad(n){return (n<10?'0':'')+n}
 function remLocal(d){return d.getFullYear()+'-'+remPad(d.getMonth()+1)+'-'+remPad(d.getDate())+'T'+remPad(d.getHours())+':'+remPad(d.getMinutes())}
 function remDueEnd(due){return new Date((due||ymd(new Date()))+'T23:59').getTime()}
 function remStart(list,dueSel){
-  REM={list:(list||[]).map(function(r){return {id:r.id||uid(),at:r.at,orig:r.at,fired:!!r.fired}}),dueSel:dueSel};
+  REM={list:(list||[]).map(function(r){var o={id:r.id||uid(),at:r.at,orig:r.at,fired:!!r.fired};if(r.by)o.by=r.by;return o}),dueSel:dueSel};
   remDraw();
   $('#remAdd').onclick=function(){
     if(REM.list.length>=10){toast('Máximo 10 recordatorios por actividad.');return}
@@ -1609,7 +1628,7 @@ function remDraw(){
   box.innerHTML=REM.list.length?REM.list.map(function(r,i){
     var t=new Date(r.at).getTime(),st=!isFinite(t)?'':t>end?'<span class="rem-err">Después de la entrega</span>':t<=now?'<span class="rem-past">Ya pasó</span>':'<span class="rem-ok">En '+remIn(t-now)+'</span>';
     return '<div class="rem-row"><input type="datetime-local" id="rem_'+r.id+'" data-rid="'+r.id+'" value="'+esc(r.at||'')+'" max="'+(due?due+'T23:59':'')+'" aria-label="Fecha y hora del recordatorio '+(i+1)+'">'+
-      '<button type="button" class="btn ghost small rem-del" data-rdel="'+r.id+'" aria-label="Borrar recordatorio">✕</button>'+(st?'<div class="rem-st">'+st+'</div>':'')+'</div>';
+      '<button type="button" class="btn ghost small rem-del" data-rdel="'+r.id+'" aria-label="Borrar recordatorio">✕</button>'+(st||r.by==='parent'?'<div class="rem-st">'+(r.by==='parent'&&MODE==='student'?'👨‍👩‍👧 De tu familia · ':'')+st+'</div>':'')+'</div>';
   }).join(''):'<div class="muted" style="padding:6px 0">Sin recordatorios todavía.</div>';
   $('#remCount').textContent=REM.list.length?String(REM.list.length):'';
   Array.prototype.forEach.call(box.querySelectorAll('input[data-rid]'),function(inp){inp.onchange=function(){var r=REM.list.filter(function(x){return x.id===inp.dataset.rid})[0];if(r){r.at=inp.value;remDraw()}}});
@@ -1636,7 +1655,7 @@ function remCollect(due){
     if(t>end)return {err:'Cada recordatorio debe ser antes de terminar el día de entrega ('+fmtDate(due)+').'};
     if(t<=now&&r.at!==r.orig)return {err:'Un recordatorio nuevo o cambiado debe ser en el futuro.'};
     if(seen[r.at])continue;seen[r.at]=1;
-    out.push({id:r.id,at:r.at,fired:r.at===r.orig?!!r.fired:false});
+    var ro={id:r.id,at:r.at,fired:r.at===r.orig?!!r.fired:false};if(r.by)ro.by=r.by;out.push(ro);
   }
   out.sort(function(a,b){return a.at.localeCompare(b.at)});
   return {list:out.slice(0,10)};
@@ -1657,7 +1676,7 @@ function checkTaskReminders(){
     t.reminders.forEach(function(r){
       var at=remTime(r);if(!at||r.fired||at>now)return;
       r.fired=true;changed=true;
-      if(now-at<12*3600e3){var s=subj(t.subject);fireNotice('Recordatorio: '+t.title,(s?s.name+' · ':'')+daysLeftText(t.due)+' ('+fmtDate(t.due)+')')}
+      if(now-at<12*3600e3){var s=subj(t.subject);fireNotice((r.by==='parent'?'Tu familia te recuerda: ':'Recordatorio: ')+t.title,(s?s.name+' · ':'')+daysLeftText(t.due)+' ('+fmtDate(t.due)+')')}
     });
   });
   if(changed)save();
@@ -2215,7 +2234,7 @@ function tvModal(tid){
     '<div class="tv-box"><div class="reto-h">Tu revisión</div><div class="muted" style="margin-bottom:8px">Revisa el cuaderno, la foto o la plataforma del colegio.</div><div class="row" style="gap:8px"><button class="btn small '+(fc&&fc.fam==='ok'?'famb':'ghost')+'" data-act="tv-fam" data-id="'+esc(tid+'|ok')+'">✔ La vi, sí la hizo</button><button class="btn small '+(fc&&fc.fam==='no'?'danger on':'ghost')+'" data-act="tv-fam" data-id="'+esc(tid+'|no')+'">✘ No la hizo</button></div></div>'+
     '<div class="tv-box"><div class="reto-h">Docente</div>'+(tc?'<div><b>'+(tc.result==='entregada'?'🟢 Entregó':tc.result==='tarde'?'🟡 Entregó tarde':'❌ No entregó')+'</b>'+(tc.teacherName?' · '+esc(tc.teacherName):'')+' · '+esc(fmtRem(tc.at))+'</div>'+(tc.comment?'<div class="evc-c">«'+esc(tc.comment)+'»</div>':''):
       '<div class="muted" style="margin-bottom:8px">Pídele al docente que confirme con un toque. No necesita instalar nada.</div>'+(link?'<div class="muted">Ya pediste confirmación. Puedes volver a compartir el link.</div>':''))+
-      '<div class="row wrap" style="gap:8px;margin-top:8px"><button class="btn famb small" data-act="tv-ask" data-id="'+esc(tid)+'">'+(link?'Compartir link otra vez':'Pedir confirmación al docente')+'</button></div></div>'+
+      '<div class="row wrap" style="gap:8px;margin-top:8px"><button class="btn famb small" data-act="tv-ask" data-id="'+esc(tid)+'">'+(link?'Compartir link otra vez':'Pedir confirmación al docente')+'</button></div></div>'+parentTaskBox(t)+
     '<div class="row" style="margin-top:14px"><button class="btn ghost" data-act="close" style="margin-left:auto">Cerrar</button></div>');
   var lb=$('#tvload');if(lb)lb.onclick=function(){lb.disabled=true;lb.textContent=T('Cargando…');dbGet('evidenceImg',vKey(sid,tid)).then(function(x){$('#tvimg').innerHTML=x&&x.img&&/^data:image\/jpeg;base64,/.test(x.img)?'<img src="'+x.img+'" alt="Foto de la evidencia" class="evimg">':'<div class="muted">No se encontró la foto.</div>'})};
 }
@@ -2412,7 +2431,7 @@ function taskRow(t){
   return '<div class="item '+(t.done?'done':'')+'">'+
     '<input type="checkbox" class="chk" '+(ro?'disabled ':'data-act="toggle" ')+'data-id="'+t.id+'" '+(t.done?'checked':'')+' aria-label="Hecha">'+
     '<div class="grow" '+(ro?'data-act="tv-open" data-id="'+t.id+'" style="cursor:pointer"':'data-act="edit-task" data-id="'+t.id+'" style="cursor:pointer"')+'><div class="title">'+prio+esc(t.title)+'</div>'+
-    '<div class="muted"><span class="dot" style="display:inline-block;width:8px;height:8px;background:'+(s?s.color:'#999')+'"></span> '+(s?esc(s.name):'Sin materia')+' · '+esc(t.type||'Tarea')+(t.school?' · 🏫 Colegio':'')+(t.time?' · '+esc(t.time):'')+'</div>'+remLine(t)+trustChip(t)+'</div>'+badge+'</div>';
+    '<div class="muted"><span class="dot" style="display:inline-block;width:8px;height:8px;background:'+(s?s.color:'#999')+'"></span> '+(s?esc(s.name):'Sin materia')+' · '+esc(t.type||'Tarea')+' · '+esc(taskBy(t))+(t.time?' · '+esc(t.time):'')+'</div>'+remLine(t)+trustChip(t)+'</div>'+badge+'</div>';
 }
 function assignedTaskRow(t){
   var dd=diffDays(t.due),badge='';
@@ -4298,7 +4317,7 @@ function schoolSync(){
     seen[ev.id]=1;var sid=map[ev.subjectId]||'';
     if(EV_TASK[ev.type]){
       var t=S.tasks.filter(function(x){return x.schoolEv===ev.id})[0];
-      var want={title:String(ev.title).slice(0,120),due:ev.date,type:EV_TASK[ev.type],note:ev.note||'',time:ev.time||''};
+      var want={title:String(ev.title).slice(0,120),due:ev.date,type:EV_TASK[ev.type],note:ev.note||'',time:ev.time||'',byName:String(ev.byName||'').slice(0,40)};
       if(!t){
         if(ev.date<old)return;
         t=Object.assign({id:'se_'+ev.id,subject:sid,prio:ev.type==='examen'?'alta':'media',done:false,school:true,schoolEv:ev.id},want);S.tasks.push(t);changed=true;
@@ -4987,6 +5006,8 @@ function demoSchoolLink(){
   var m={m:'sj0',l:'sj1',c:'sj2'};S0.subjects.forEach(function(s){if(m[s.id])s.schoolSubj=m[s.id]});
   var t={t1:'e1',t2:'e2',t3:'e3',t4:'e4',t7:'e5'};S0.tasks.forEach(function(x){if(t[x.id]){x.schoolEv=t[x.id];x.school=true}});
   S0.topics.forEach(function(x){if(x.id==='p5')x.schoolEv='e11'});
+  var d2=shift(ymd(new Date()),2),rd=new Date(d2+'T00:00');rd.setDate(rd.getDate()-1);rd.setHours(19,0,0,0);
+  S0.tasks.push({id:'pt_demo1',title:'Leer 20 minutos antes de dormir',subject:'l',due:d2,type:'Lectura',prio:'media',note:'Capítulo 5 de El Principito.',done:false,by:'parent',byName:'Mamá',reminders:[{id:'rmp1',at:remLocal(rd),by:'parent'}]});
 }
 function demoSetRole(r){
   if(!SAMPLE)return;
@@ -4994,6 +5015,119 @@ function demoSetRole(r){
   MODE=r;closeModal();stopTimer();
   if(r==='student'||r==='parent'){S=demo.S;curSid='demo';if(r==='student')schoolSync()}
   view=navItems()[0][0];render();window.scrollTo(0,0);
+}
+
+/* ---------- Quién agregó cada actividad y cambios de la familia ---------- */
+function taskBy(t){
+  if(t.school)return '🧑‍🏫 '+(t.byName||'Colegio');
+  if(t.by==='parent')return '👨‍👩‍👧 '+(t.byName||'Familia');
+  return '🧑‍🎓 '+(MODE==='student'?'Tú':((nameOf()||'').split(' ')[0]||'Estudiante'));
+}
+var TOPS=[];
+function cleanTask(o){
+  o=o||{};var out={};
+  if(o.title!=null)out.title=String(o.title).trim().slice(0,120);
+  if(o.subject!=null)out.subject=String(o.subject).slice(0,60);
+  if(o.type!=null)out.type=String(o.type).slice(0,40);
+  if(o.prio!=null)out.prio=['alta','media','baja'].indexOf(o.prio)>=0?o.prio:'media';
+  if(o.due!=null&&/^\d{4}-\d{2}-\d{2}$/.test(o.due))out.due=o.due;
+  if(o.note!=null)out.note=String(o.note).slice(0,300);
+  return out;
+}
+function cleanRems(l){return (Array.isArray(l)?l:[]).slice(0,10).filter(function(r){return r&&r.at&&isFinite(new Date(r.at).getTime())}).map(function(r){return {id:String(r.id||uid()).slice(0,30),at:String(r.at).slice(0,16),by:'parent'}})}
+/* Aplica un cambio de la familia a las actividades del estudiante (se puede aplicar varias veces sin duplicar) */
+function applyOp(T,op){
+  if(!T||!T.tasks||!op)return false;
+  if(op.op==='add'){
+    var nid='pt_'+op.id;if(T.tasks.some(function(x){return x.id===nid}))return false;
+    var c=cleanTask(op.task);if(!c.title||!c.due)return false;
+    T.tasks.push(Object.assign({id:nid,type:'Tarea',prio:'media',note:'',subject:'',done:false,by:'parent',byName:String(op.byName||'').slice(0,40)},c,{reminders:cleanRems(op.task&&op.task.reminders)}));
+    return true;
+  }
+  var t=T.tasks.filter(function(x){return x.id===op.taskId})[0];if(!t)return false;
+  if(op.op==='edit'){if(t.school)return false;var c2=cleanTask(op.task),ch=false;Object.keys(c2).forEach(function(k){if(t[k]!==c2[k]){t[k]=c2[k];ch=true}});if(ch)t.editedBy=String(op.byName||'').slice(0,40);return ch}
+  if(op.op==='del'){if(t.school)return false;T.tasks=T.tasks.filter(function(x){return x.id!==t.id&&!(x.parent===t.id&&!x.done)});return true}
+  if(op.op==='rem'){
+    var old=t.reminders||[],fired={};old.forEach(function(r){if(r.by==='parent'&&r.fired)fired[r.at]=1});
+    var next=old.filter(function(r){return r.by!=='parent'}).concat(cleanRems(op.reminders).map(function(r){if(fired[r.at])r.fired=true;return r}));
+    if(JSON.stringify(next)===JSON.stringify(old))return false;t.reminders=next;return true;
+  }
+  return false;
+}
+function famOp(o){
+  o.byName=String(parentName()||'Familia').slice(0,40);o.student=curSid;o.at=Date.now();
+  if(SAMPLE){o.id=uid();applyOp(demo.S,o);S=demo.S;softRender();return Promise.resolve(true)}
+  if(typeof F!=='function'||!DB){toast('Esta función se usa con las cuentas de la familia.');return Promise.resolve(false)}
+  return DB.collection('taskOps').add(JSON.parse(JSON.stringify(o))).then(function(r){if(r&&r.id&&typeof rememberOp==='function')rememberOp(Object.assign({id:r.id},o));softRender();return true},function(e){writeErr(e);return false});
+}
+function firstName(){return (nameOf()||'').replace(/ \(ejemplo\)$/,'').split(' ')[0]||'tu hijo o hija'}
+function parentActBar(){
+  if(MODE!=='parent'||view!=='p_act'||!curSid)return '';
+  return '<div class="card pbar"><div class="row between wrap" style="gap:10px"><div class="grow"><b>Actividades de '+esc(firstName())+'</b><div class="muted">Agrega tareas, corrige las que se registraron por error o ponles recordatorios. Toca una actividad para ver opciones.</div></div>'+
+    '<button class="btn famb small" data-act="pt-new">＋ Agregar actividad</button></div></div>';
+}
+function parentTaskBox(t){
+  if(MODE!=='parent'||!t)return '';
+  return '<div class="tv-box"><div class="reto-h">Opciones de la familia</div><div class="muted" style="margin-bottom:8px">Agregada por '+esc(taskBy(t))+(t.editedBy?' · cambiada por '+esc(t.editedBy):'')+'</div>'+
+    '<div class="row wrap" style="gap:8px"><button class="btn famb small" data-act="pt-rem" data-id="'+esc(t.id)+'">🔔 Recordatorios</button>'+
+    (t.school?'<span class="muted" style="font-size:13px;align-self:center">La puso el colegio: solo el docente puede cambiarla.</span>':
+      '<button class="btn ghost small" data-act="pt-edit" data-id="'+esc(t.id)+'">✏️ Editar</button><button class="btn ghost small" data-act="pt-del" data-id="'+esc(t.id)+'">🗑️ Eliminar</button>')+'</div></div>';
+}
+function parentTaskForm(id){
+  if(!curSid){toast('Primero elige al estudiante.');return}
+  if(!S.subjects.length){toast(firstName()+' todavía no tiene materias.');return}
+  var t=id?(S.tasks.filter(function(x){return x.id===id})[0]):{title:'',subject:S.subjects[0].id,due:ymd(new Date()),type:'Tarea',prio:'media',note:''};
+  if(!t)return;if(t.school){toast('Esta actividad la puso el colegio: solo el docente puede cambiarla.');return}
+  var types=typeof activityTypeNames==='function'?activityTypeNames():['Tarea','Examen','Proyecto','Lectura','Exposición','Repaso'];if(t.type&&types.indexOf(t.type)<0)types.push(t.type);
+  openModal('<h3>'+(id?'Corregir actividad':'Nueva actividad para '+esc(firstName()))+'</h3>'+(id?'<p class="muted" style="margin:0">Agregada por '+esc(taskBy(t))+'</p>':'')+
+   '<label for="f1">Título</label><input id="f1" maxlength="120" value="'+esc(t.title)+'" placeholder="Ej. Ejercicios del capítulo 3">'+
+   '<label for="f2">Materia</label><select id="f2">'+subjOptions(t.subject)+'</select>'+
+   '<div class="grid2" style="margin:0"><div><label for="f3">Tipo</label><select id="f3">'+types.map(function(x){return '<option value="'+esc(x)+'"'+(x===t.type?' selected':'')+'>'+esc(x)+'</option>'}).join('')+'</select></div>'+
+   '<div><label for="f4">Prioridad</label><select id="f4">'+['alta','media','baja'].map(function(x){return '<option value="'+x+'"'+(x===t.prio?' selected':'')+'>'+x[0].toUpperCase()+x.slice(1)+'</option>'}).join('')+'</select></div></div>'+
+   '<label for="f5">Fecha de entrega</label><input type="date" id="f5" value="'+esc(t.due)+'"><label for="f6">Nota (opcional)</label><textarea id="f6" rows="2" maxlength="300">'+esc(t.note||'')+'</textarea>'+
+   (id?'':remEditorHtml())+
+   '<div class="row" style="margin-top:16px">'+(id?'<button class="btn danger" data-act="pt-del" data-id="'+esc(id)+'">Eliminar</button>':'')+'<button class="btn ghost" data-act="close" style="margin-left:auto">Cancelar</button><button class="btn famb" id="ptok">'+(id?'Guardar cambios':'Agregar')+'</button></div>');
+  if(!id)remStart([],'#f5');
+  $('#ptok').onclick=function(){
+    var title=$('#f1').value.trim(),due=$('#f5').value;
+    if(!title){toast('Escribe el título de la actividad.');$('#f1').focus();return}
+    if(!due){toast('Elige la fecha de entrega.');return}
+    if(!id&&due<ymd(new Date())){toast('La fecha de entrega no puede ser anterior a hoy.');return}
+    var obj={title:title,subject:$('#f2').value,type:$('#f3').value,prio:$('#f4').value,due:due,note:$('#f6').value.trim()};
+    if(!id){var rc=remCollect(due);if(rc.err){toast(rc.err);return}obj.reminders=rc.list}
+    this.disabled=true;var b=this;
+    famOp(id?{op:'edit',taskId:id,task:obj}:{op:'add',task:obj}).then(function(ok){if(ok){closeModal();toast(id?'Cambios guardados ✅':'Actividad agregada para '+firstName()+' ✅')}else b.disabled=false});
+  };
+}
+function parentRemForm(id){
+  var t=S.tasks.filter(function(x){return x.id===id})[0];if(!t)return;
+  var mine=(t.reminders||[]).filter(function(r){return r.by==='parent'}),own=(t.reminders||[]).filter(function(r){return r.by!=='parent'&&r.at});
+  openModal('<h3>🔔 Recordatorios para '+esc(firstName())+'</h3><p class="muted" style="margin:0">'+esc(t.title)+' · entrega '+esc(fmtDate(t.due))+'</p><input type="hidden" id="f5" value="'+esc(t.due)+'">'+
+    remEditorHtml()+(own.length?'<p class="muted" style="font-size:13px">Recordatorios que puso '+esc(firstName())+': '+own.map(function(r){return esc(fmtRem(r.at))}).join(' · ')+'</p>':'')+
+    '<p class="muted" style="font-size:13px">Le llegan a '+esc(firstName())+' en su app con el aviso «Tu familia te recuerda».</p>'+
+    '<div class="row" style="margin-top:16px"><button class="btn ghost" data-act="close" style="margin-left:auto">Cancelar</button><button class="btn famb" id="prok">Guardar</button></div>');
+  remStart(mine,'#f5');
+  $('#prok').onclick=function(){
+    var rc=remCollect(t.due);if(rc.err){toast(rc.err);return}
+    this.disabled=true;var b=this;
+    famOp({op:'rem',taskId:id,reminders:rc.list}).then(function(ok){if(ok){closeModal();toast(rc.list.length?'Recordatorios guardados 🔔':'Recordatorios quitados')}else b.disabled=false});
+  };
+}
+function parentTaskDel(id){
+  var t=S.tasks.filter(function(x){return x.id===id})[0];if(!t)return;
+  if(t.school){toast('Esta actividad la puso el colegio: solo el docente puede borrarla.');return}
+  ask('Se eliminará «'+t.title+'» de las actividades de '+firstName()+'.','Eliminar',function(){famOp({op:'del',taskId:id}).then(function(ok){if(ok)toast('Actividad eliminada')})});
+}
+/* Estudiante: recibe los cambios de la familia */
+function applyFamOps(list){
+  if(MODE!=='student')return [];
+  var done=[],msgs=[];
+  list.filter(function(o){return o.student===mySid}).sort(function(a,b){return (a.at||0)-(b.at||0)}).forEach(function(o){
+    if(applyOp(S,o)){if(o.op==='add')msgs.push((o.byName||'Tu familia')+' agregó: '+((o.task&&o.task.title)||''));else if(o.op==='rem')msgs.push((o.byName||'Tu familia')+' te puso recordatorios 🔔')}
+    done.push(o.id);
+  });
+  if(done.length){save();if(msgs.length)toast(msgs[0]+(msgs.length>1?' (+'+(msgs.length-1)+')':''))}
+  return done;
 }
 
 /* ---------- Acciones ---------- */
@@ -5037,6 +5171,10 @@ function schoolAction(a,id,el){
       el.disabled=true;schAct('nurse.send',{uid:stu,kind:kb?kb.dataset.k:'otro',text:txt.slice(0,500)}).then(function(){toast('Aviso enviado a la familia ✅');render()},function(){el.disabled=false});break;
     case 'sc-plat-new':formPlatSchool();break;
     case 'sc-pass':passwordModal();break;
+    case 'pt-new':parentTaskForm();break;
+    case 'pt-edit':closeModal();parentTaskForm(id);break;
+    case 'pt-rem':closeModal();parentRemForm(id);break;
+    case 'pt-del':closeModal();parentTaskDel(id);break;
     case 'sc-plat-edit':formPlatSchool(id);break;
     case 'sc-plat-open':schAct('plat.use',{id:id}).then(function(){demoSetRole('school')});break;
     case 'sc-switch':closeModal();if(typeof staffPicker==='function')staffPicker();break;
@@ -5056,7 +5194,7 @@ document.addEventListener('click',function(e){
   if(/^(fr-|chore-)/.test(a)){casaAction(a,id);return}
   if(/^rev-/.test(a)){revAction(a,id);return}
   if(/^tv-/.test(a)){validAction(a,id,el);return}
-  if(/^(sc-|cal-|subj-|stu-)/.test(a)){schoolAction(a,id,el);return}
+  if(/^(sc-|cal-|subj-|stu-|pt-)/.test(a)){schoolAction(a,id,el);return}
   switch(a){
     case 'close':closeModal();break;
     case 'auth-tab':AUTH.tab=id;AUTH.err='';render();break;
@@ -5075,7 +5213,7 @@ document.addEventListener('click',function(e){
     case 'demo-exit':exitDemo();break;
     case 'demo-switch':MODE=MODE==='student'?'parent':'student';view=MODE==='parent'?'p_home':'home';render();window.scrollTo(0,0);break;
     case 'new-subject':formSubject();break;
-    case 'assign-task':formAssignedTask();break;
+    case 'assign-task':parentTaskForm();break;
     case 'assigned-edit':formAssignedTask(id);break;
     case 'assigned-del':deleteAssignedTask(id);break;
     case 'activity-type-add':formActivityType();break;
