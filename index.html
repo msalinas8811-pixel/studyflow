@@ -691,6 +691,33 @@ body.parent .linkbtn{color:var(--fam)}
 .tfile .muted{font-size:12.5px}
 .chipb .sdot{width:10px;height:10px;border-radius:50%;display:inline-block}
 .chipb.on:hover{background:var(--primary);border-color:var(--primary);color:var(--on-primary)}
+/* Temario por trimestre y unidad */
+.unit{margin-top:12px;padding:10px 12px;border-radius:16px;background:var(--bg);border:1px solid var(--line)}
+.unit.cur{border-color:var(--ok);box-shadow:inset 3px 0 0 var(--ok)}
+.unit-h{display:flex;align-items:center;gap:10px;padding:2px 0 6px}
+.unit-h[data-act]{cursor:pointer}
+.unit-t{font-weight:700;font-size:15px;line-height:1.3;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.unit-ed{color:var(--muted)}
+.unit .item{padding:9px 0}
+.unit .item:last-of-type{border-bottom:0}
+.tripill{display:inline-flex;align-items:center;gap:6px;margin:0 0 12px;padding:7px 12px;border-radius:99px;background:var(--ok-soft);color:var(--ok);font-size:13.5px;font-weight:500}
+.tripill b{color:var(--text)}
+.card .tripill{margin:8px 0 0}
+details.tri{margin-top:12px;border-radius:16px;border:1px solid var(--line);padding:4px 12px 10px;background:var(--card)}
+details.tri>summary{cursor:pointer;padding:8px 0;list-style:none;display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+details.tri>summary::-webkit-details-marker{display:none}
+details.tri>summary::before{content:'▸';color:var(--muted);transition:transform .15s}
+details.tri[open]>summary::before{transform:rotate(90deg)}
+.autofill{margin-top:12px;padding:10px 12px;border-radius:12px;background:var(--bg)}
+.udrow{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)}
+.udrow input{width:auto;min-height:40px;padding:8px 10px;flex:none}
+.udrow .grow{font-size:14px}
+.tbprev{margin-top:10px;font-size:13.5px}
+.tbprev ul{margin:6px 0 0;padding-left:18px;color:var(--muted);line-height:1.5}
+.nodate{color:var(--warn-text)}
+.tridot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 2px var(--card)}
+.tabs button.active .tridot{background:#fff;box-shadow:none}
+.tabs .tridot{margin-left:2px}
 </style>
 </head>
 <body>
@@ -1014,6 +1041,7 @@ function invitesModal(){
 /* Bloque en la pantalla de bienvenida (cuenta nueva sin familia) */
 function schoolOnboardHtml(){
   var out='';
+  if(isPlatAdmin())out+='<div class="card"><h2>🌐 Administración de StudyFlow</h2><p class="muted" style="margin-top:-4px">Tu cuenta es la administradora de la plataforma. Puedes entrar sin crear una familia.</p><button class="role" data-act="sc-panel" data-id="platform" style="margin:0"><span class="e">🌐</span><span><b>Plataforma StudyFlow</b><br><span class="muted">Registrar y administrar colegios</span></span></button></div>';
   if((AUTH.invites||[]).length)out+='<div class="card"><h2>Invitaciones de colegios</h2>'+invitesHtml()+'</div>';
   else if(AUTH.needVerify)out+='<div class="card schc"><b>¿Trabajas en un colegio?</b><div class="muted">Para ver tu invitación, primero confirma tu correo. Te enviaremos un enlace.</div>'+
     '<div class="row wrap" style="gap:8px;margin-top:10px"><button class="btn small" data-act="sc-verify">Enviar correo de verificación</button><button class="btn ghost small" data-act="sc-reload">Ya lo confirmé</button></div></div>';
@@ -1080,7 +1108,7 @@ function stuLinkSync(l){
   if(!key){softRender();return}
   STU={profile:null,grade:null,events:[],evLoaded:false};
   var R=F().root,base='schools/'+nl.schoolId;
-  STUL.push(R.doc(base).onSnapshot(function(d){if(STU)STU.profile=d.exists?d.data():null;softRender()},function(){}));
+  STUL.push(R.doc(base).onSnapshot(function(d){if(!STU)return;STU.profile=d.exists?d.data():null;stuSyncSoon()},function(){}));
   STUL.push(R.doc(base+'/grades/'+nl.gradeId).onSnapshot(function(d){if(!STU)return;STU.grade=d.exists?Object.assign({id:d.id},d.data()):null;stuSyncSoon()},function(){}));
   STUL.push(R.collection(base+'/grades/'+nl.gradeId+'/events').onSnapshot(function(q){if(!STU)return;
     STU.events=q.docs.map(function(d){return Object.assign({id:d.id},d.data())});if(!q.fromCache)STU.evLoaded=true;stuSyncSoon()},function(){}));
@@ -1705,7 +1733,7 @@ function remDraw(){
   box.innerHTML=REM.list.length?REM.list.map(function(r,i){
     var t=new Date(r.at).getTime(),st=!isFinite(t)?'':t>end?'<span class="rem-err">Después de la entrega</span>':t<=now?'<span class="rem-past">Ya pasó</span>':'<span class="rem-ok">En '+remIn(t-now)+'</span>';
     return '<div class="rem-row"><input type="datetime-local" id="rem_'+r.id+'" data-rid="'+r.id+'" value="'+esc(r.at||'')+'" max="'+(due?due+'T23:59':'')+'" aria-label="Fecha y hora del recordatorio '+(i+1)+'">'+
-      '<button type="button" class="btn ghost small rem-del" data-rdel="'+r.id+'" aria-label="Borrar recordatorio">✕</button>'+(st||r.by==='parent'?'<div class="rem-st">'+(r.by==='parent'&&MODE==='student'?'👨‍👩‍👧 De tu familia · ':'')+st+'</div>':'')+'</div>';
+      '<button type="button" class="btn ghost small rem-del" data-rdel="'+r.id+'" aria-label="Borrar recordatorio">✕</button>'+(st||r.by==='parent'||r.by==='school'?'<div class="rem-st">'+(r.by==='parent'&&MODE==='student'?'👨‍👩‍👧 De tu familia · ':r.by==='school'?'🧑‍🏫 De tu docente · ':'')+st+'</div>':'')+'</div>';
   }).join(''):'<div class="muted" style="padding:6px 0">Sin recordatorios todavía.</div>';
   $('#remCount').textContent=REM.list.length?String(REM.list.length):'';
   Array.prototype.forEach.call(box.querySelectorAll('input[data-rid]'),function(inp){inp.onchange=function(){var r=REM.list.filter(function(x){return x.id===inp.dataset.rid})[0];if(r){r.at=inp.value;remDraw()}}});
@@ -1753,7 +1781,7 @@ function checkTaskReminders(){
     t.reminders.forEach(function(r){
       var at=remTime(r);if(!at||r.fired||at>now)return;
       r.fired=true;changed=true;
-      if(now-at<12*3600e3){var s=subj(t.subject);fireNotice((r.by==='parent'?'Tu familia te recuerda: ':'Recordatorio: ')+t.title,(s?s.name+' · ':'')+daysLeftText(t.due)+' ('+fmtDate(t.due)+')')}
+      if(now-at<12*3600e3){var s=subj(t.subject);fireNotice((r.by==='parent'?'Tu familia te recuerda: ':r.by==='school'?'Tu docente te recuerda: ':'Recordatorio: ')+t.title,(s?s.name+' · ':'')+daysLeftText(t.due)+' ('+fmtDate(t.due)+')')}
     });
   });
   if(changed)save();
@@ -3424,7 +3452,7 @@ function topicRow(t,par){
   var s=subj(t.subject),c=CONF[t.conf||0];
   return '<div class="item"><span class="dot" style="background:'+(s?s.color:'#999')+'"></span>'+
     '<div class="grow" '+(par?'':'data-act="topic" data-id="'+t.id+'" style="cursor:pointer"')+'><div class="title">'+esc(t.title)+'</div>'+
-    '<div class="muted">'+(s?esc(s.name):'')+(t.quiz?' · mini examen '+t.quiz.s+'/'+t.quiz.t:'')+'</div>'+topicActBadge(t)+'</div>'+
+    '<div class="muted">'+(s?esc(s.name):'')+(t.tri?(t.date?' · '+fmtDate(t.date):' · sin fecha'):'')+(t.quiz?' · mini examen '+t.quiz.s+'/'+t.quiz.t:'')+'</div>'+topicActBadge(t)+'</div>'+
     '<span class="face" title="'+c[1]+'" aria-label="'+c[1]+'">'+c[0]+'</span>'+
     (par&&isWeak(t)?'<button class="btn famb small" data-act="topic-help" data-id="'+t.id+'">Apoyar</button>':'')+(par&&MODE==='parent'?'<button class="btn ghost small sq" data-act="pt-topic" data-id="'+t.id+'" title="Agregar actividad de este tema" aria-label="Agregar actividad de este tema">＋</button>':'')+
     (par?'':'<button class="btn ghost small" data-act="t-study" data-id="'+t.id+'" aria-label="Estudiar con IA">🤖</button>')+'</div>';
@@ -3437,7 +3465,7 @@ function weekNav(w){
 function vTemario(){
   if(!S.subjects.length)return '<div class="card"><div class="empty">Primero agrega tus materias en «Materias y lecturas».</div></div>';
   var w=shift(mondayOf(new Date()),weekOff*7),list=topicsOfWeek(w);
-  var out='<div class="card">'+weekNav(w);
+  var out=triPill()+'<div class="card">'+weekNav(w);
   if(!list.length)out+='<div class="empty">No hay temas para esta semana.'+(S.topics.length?'':'<br>Carga el temario de tus materias con el botón <b>+</b>: pega el texto o sube una foto.')+'</div>';
   else S.subjects.forEach(function(s){list.filter(function(t){return t.subject===s.id}).forEach(function(t){out+=topicRow(t)})});
   out+='<p class="muted" style="margin:8px 0 0">Toca un tema para decir cómo te sientes y estudiarlo con IA. ❔ sin evaluar · 😟 me cuesta · 😐 más o menos · 😀 lo domino</p></div>';
@@ -3448,7 +3476,7 @@ function vTemario(){
       S.subjects.map(function(s){var all=S.topics.filter(function(t){return t.subject===s.id});if(!all.length)return '';var dm=all.filter(function(t){return t.conf===3}).length;
         return '<button data-act="tsf" data-id="'+s.id+'" class="'+(topicSubj===s.id?'active':'')+'">'+esc(s.name)+' · '+dm+'/'+all.length+' 😀</button>'}).join('')+'</div>';
     var tl=S.topics.filter(function(t){return topicSubj==='all'||t.subject===topicSubj}).sort(function(a,b){return a.week<b.week?-1:a.week>b.week?1:0}),lw='';
-    tl.forEach(function(t){if(t.week!==lw){lw=t.week;out+='<div class="group">Semana '+weekLabel(t.week)+'</div>'}out+=topicRow(t)});
+    out+=topicListHtml(tl);
     out+='</div>';
   }
   return out+'<button class="btn block" data-act="temario" style="margin-bottom:14px">+ Cargar temario</button>';
@@ -3464,7 +3492,7 @@ function topicsParentCard(){
 function formTopic(id){
   var t=topicById(id);if(!t)return;curTopic=id;
   var s=subj(t.subject);
-  openModal('<h3>'+esc(t.title)+'</h3><p class="muted" style="margin:0">'+(s?esc(s.name)+' · ':'')+'semana del '+weekLabel(t.week)+(t.quiz?' · último mini examen: '+t.quiz.s+'/'+t.quiz.t:'')+'</p>'+
+  openModal('<h3>'+esc(t.title)+'</h3><p class="muted" style="margin:0">'+(s?esc(s.name)+' · ':'')+(t.tri?'Unidad '+(t.unit||1)+(t.unitName?': '+esc(t.unitName):'')+' · ':'')+(t.week?'semana del '+weekLabel(t.week):'sin fecha todavía')+(t.quiz?' · último mini examen: '+t.quiz.s+'/'+t.quiz.t:'')+'</p>'+
     '<label>¿Cómo te sientes con este tema?</label><div class="chips">'+[1,2,3].map(function(c){return '<button class="chipb'+(t.conf===c?' on':'')+'" data-act="conf" data-id="'+c+'">'+CONF[c][0]+' '+CONF[c][1]+'</button>'}).join('')+'</div>'+
     '<label>Estudiar con IA</label><div class="row wrap"><button class="btn small" data-act="t-ex">'+ic('sparkle')+'Explícamelo</button><button class="btn small" data-act="t-quiz">'+ic('edit')+'Mini examen</button><button class="btn ghost small" data-act="t-sum">'+ic('file')+'Resumen</button></div>'+topicActsHtml(t)+
     '<h4>Editar tema</h4><label for="tp1">Nombre</label><input id="tp1" value="'+esc(t.title)+'" maxlength="100"><label for="tp2">Semana (cualquier día de esa semana)</label><input type="date" id="tp2" value="'+t.week+'">'+
@@ -3621,7 +3649,7 @@ function helpTopicCard(){
       var c=CONF[t.conf||0],sel=t.id===helpTopic;
       var tag=isWeak(t)?'<span class="badge late">Le cuesta</span>':t.week===w0?'<span class="badge">Esta semana</span>':t.week>w0?'<span class="badge">Próximo</span>':'';
       out+='<button class="item" data-act="ht" data-id="'+t.id+'" style="width:100%;border:0;border-bottom:1px solid var(--line);background:'+(sel?'var(--fam-soft)':'none')+';color:var(--text);font:inherit;text-align:left;cursor:pointer;padding:10px 6px;border-radius:8px" aria-pressed="'+sel+'">'+
-        '<span class="face" aria-label="'+c[1]+'">'+c[0]+'</span><span class="grow"><span class="title" style="display:block">'+esc(t.title)+'</span><span class="muted">Semana '+weekLabel(t.week)+(t.quiz?' · examen '+t.quiz.s+'/'+t.quiz.t:'')+'</span></span>'+tag+'</button>';
+        '<span class="face" aria-label="'+c[1]+'">'+c[0]+'</span><span class="grow"><span class="title" style="display:block">'+esc(t.title)+'</span><span class="muted">'+(t.week?'Semana '+weekLabel(t.week):'Sin fecha')+(t.quiz?' · examen '+t.quiz.s+'/'+t.quiz.t:'')+'</span></span>'+tag+'</button>';
     });
     out+='</div>';
   }
@@ -4219,13 +4247,22 @@ function seedSchool(){
     {id:'e8',type:'lectura',title:'El Principito, capítulos 5 al 8',subjectId:'sj1',date:d(8),by:'stf_castro',byName:'Prof. Castro'},
     {id:'e9',type:'aviso',title:'Reunión de madres y padres',date:d(5),time:'17:00',note:'En el salón de usos múltiples.',by:'stf_admin',byName:'Carmen Rivas'},
     {id:'e10',type:'evento',title:'Día del deporte',date:d(9),note:'Venir con uniforme de educación física.',by:'stf_dir',byName:'Lic. Roberto Méndez'},
-    {id:'e11',type:'tema',title:'Problemas con ecuaciones',subjectId:'sj0',date:d(7),by:'stf_ruiz',byName:'Prof. Ruiz'},
-    {id:'e12',type:'tema',title:'La independencia de Centroamérica',subjectId:'sj3',date:d(0),by:'stf_torres',byName:'Prof. Torres'},
+    {id:'e11',type:'tema',title:'Proporcionalidad inversa',subjectId:'sj0',date:d(7),tri:3,unitNo:6,unitName:'Proporcionalidad directa e inversa',ord:1,by:'stf_admin',byName:'Carmen Rivas'},
+    {id:'e12',type:'tema',title:'La independencia de Centroamérica',subjectId:'sj3',date:d(0),tri:3,unitNo:4,unitName:'Historia de Centroamérica',ord:0,by:'stf_admin',byName:'Carmen Rivas'},
     {id:'e13',type:'tarea',title:'Línea de tiempo de la independencia',subjectId:'sj3',topicId:'e12',date:d(3),note:'En un pliego de papel.',by:'stf_torres',byName:'Prof. Torres'}];
+  [[1,1,'Números positivos, negativos y el cero',[['Números positivos y negativos',-238],['Valor absoluto',-234],['Comparación de números',-231]]],
+   [1,2,'Suma y resta de números positivos, negativos y el cero',[['Suma de enteros',-224],['Resta de enteros',-217]]],
+   [2,4,'Comunicación con símbolos',[['Expresiones algebraicas',-150],['Términos semejantes',-143]]],
+   [2,5,'Ecuaciones de primer grado',[['Ecuaciones de primer grado',-120],['Despeje de variables',-113]]],
+   [3,6,'Proporcionalidad directa e inversa',[['Proporcionalidad directa',-3]]],
+   [3,7,'Gráfica de faja y circular',[['Gráfica de faja',null],['Gráfica circular',null]]]].forEach(function(u,ui){
+    u[3].forEach(function(t,ti){ev7.push({id:'tm'+ui+'_'+ti,type:'tema',title:t[0],subjectId:'sj0',date:t[1]==null?'':d(t[1]),tri:u[0],unitNo:u[1],unitName:u[2],ord:ti,by:'stf_admin',byName:'Carmen Rivas'})})});
+  ev7.push({id:'tm9',type:'tema',title:'La Federación Centroamericana',subjectId:'sj3',date:'',tri:3,unitNo:4,unitName:'Historia de Centroamérica',ord:1,by:'stf_admin',byName:'Carmen Rivas'});
+  ev7.forEach(function(e){if(e.id==='e4'){e.topicId='e11';e.rems=[{d:1,t:'18:00'}]}});
   var ev8=[{id:'e20',type:'examen',title:'Examen de funciones',subjectId:'sj1',date:d(5),by:'stf_ruiz',byName:'Prof. Ruiz'},{id:'e21',type:'tarea',title:'Ejercicios de proporciones',subjectId:'sj1',date:d(2),by:'stf_ruiz',byName:'Prof. Ruiz'}];
   var ev5=[{id:'e30',type:'tarea',title:'Tablas de multiplicar del 7 y 8',subjectId:'sj1',date:d(1),by:'stf_ruiz',byName:'Prof. Ruiz'},{id:'e31',type:'aviso',title:'Excursión al museo',date:d(10),note:'Traer permiso firmado.',by:'stf_admin',byName:'Carmen Rivas'}];
   var nurse=[{id:'nn1',student:'demo',studentName:'Ana Sofía Salinas (ejemplo)',gradeId:'g7',kind:'visita',text:'Pasó a enfermería por dolor de cabeza leve. Descansó 15 minutos, tomó agua y regresó a clase.',at:Date.now()-3600e3*22,by:'stf_nurse',byName:'Enf. Lucía Portillo'}];
-  var sch={id:'sch_demo',profile:{name:'Colegio Monte Verde (ejemplo)',responsible:'Lic. Roberto Méndez',address:'Calle principal 123, San Salvador',phone:'2200-0000',email:'info@colegio-ejemplo.edu',city:'San Salvador',year:String(new Date().getFullYear()),hours:'7:00 a. m. – 2:00 p. m.',motto:'Aprender juntos',code:'MV7K2P',seats:250,until:shift(ymd(new Date()),240),status:'active',plan:'anual'},
+  var sch={id:'sch_demo',profile:{curTri:3,nTri:3,name:'Colegio Monte Verde (ejemplo)',responsible:'Lic. Roberto Méndez',address:'Calle principal 123, San Salvador',phone:'2200-0000',email:'info@colegio-ejemplo.edu',city:'San Salvador',year:String(new Date().getFullYear()),hours:'7:00 a. m. – 2:00 p. m.',motto:'Aprender juntos',code:'MV7K2P',seats:250,until:shift(ymd(new Date()),240),status:'active',plan:'anual'},
     grades:grades,staff:staff,members:members,reqs:reqs,nurse:nurse,events:{g7:ev7,g7b:ev7.filter(function(e){return e.type==='aviso'||e.type==='evento'||e.type==='tema'}).map(function(e){return Object.assign({},e,{id:e.id+'b'})}),g8:ev8,g5:ev5,g6:[],g9:[]}};
   var other={id:'sch_demo2',profile:{name:'Escuela San José (ejemplo)',responsible:'Licda. Marta Flores',address:'Santa Tecla',phone:'2200-0100',email:'',city:'La Libertad',code:'SJ4H8R',seats:120,until:shift(ymd(new Date()),20),status:'trial',plan:'prueba'},
     grades:[{id:'h1',name:'1.º grado',section:'A',order:3,subjects:[]}],staff:[{id:'s2a',role:'admin',name:'Licda. Marta Flores',email:'',grades:[],access:'invited'}],members:[],reqs:[],nurse:[],events:{h1:[]}};
@@ -4359,18 +4396,26 @@ function demoReduce(a,p){
       if(p.uid==='demo'&&demo.S.settings.school){var g3=s.grades.filter(function(g){return g.id===p.gradeId})[0];demo.S.settings.school.gradeId=p.gradeId;demo.S.settings.school.gradeName=gName(g3)}return {};
     case 'member.remove':s.members=s.members.filter(function(m){return m.id!==p.uid});if(p.uid==='demo')delete demo.S.settings.school;return {};
     case 'ev.save':{
-      need(p.title&&p.date&&(EVT[p.type]||(p.type==='otro'&&p.typeName))&&s.events[p.gradeId]);
+      need(p.title&&(p.date||p.type==='tema')&&(EVT[p.type]||(p.type==='otro'&&p.typeName))&&s.events[p.gradeId]);
       if(MODE==='teacher'&&(!canEditGrade(p.gradeId)||p.type==='tema'||(p.id&&(s.events[p.gradeId].filter(function(x){return x.id===p.id})[0]||{}).type==='tema')))throw {code:'forbidden'};
       var list=s.events[p.gradeId],e=p.id?list.filter(function(x){return x.id===p.id})[0]:null;
       if(!e){e={id:'e'+uid()};list.push(e)}
-      ['type','title','subjectId','date','time','note','typeName','typeEmoji','topicId'].forEach(function(k){e[k]=p[k]||''});var me=schMe();e.by=me?me.id:'';e.byName=me?me.name:'';e.at=now;
+      var keepD=p.type==='tema'&&!p.date?(e.date||''):'';
+      ['type','title','subjectId','date','time','note','typeName','typeEmoji','topicId'].forEach(function(k){e[k]=p[k]||''});if(keepD)e.date=keepD;
+      if(p.type==='tema'){e.tri=Math.min(4,Math.max(1,+p.tri||1));e.unitNo=Math.min(40,Math.max(1,+p.unitNo||1));e.unitName=String(p.unitName||'').slice(0,100);e.ord=+p.ord||0;e.topicId=''}
+      else e.rems=(p.rems||[]).slice(0,4).map(function(r){return {d:Math.min(30,Math.max(0,+r.d||0)),t:/^\d\d:\d\d$/.test(r.t||'')?r.t:'18:00'}});var me=schMe();e.by=me?me.id:'';e.byName=me?me.name:'';e.at=now;
       return {id:e.id};
     }
+    case 'tema.date':{
+      var lt=s.events[p.gradeId];need(lt);
+      (p.items||[]).forEach(function(it){var q=lt.filter(function(x){return x.id===it.id})[0];need(q&&q.type==='tema');q.date=it.date||''});return {};
+    }
+    case 'sch.tri':{if(MODE!=='school')throw {code:'forbidden'};if(p.cur!=null)s.profile.curTri=Math.min(4,Math.max(1,+p.cur||1));if(p.n!=null)s.profile.nTri=+p.n===4?4:3;return {}}
     case 'sch.addType':{need(p.name);s.profile.types=(s.profile.types||[]).concat([{name:String(p.name).slice(0,30),emoji:p.emoji||'🗂️'}]).slice(0,30);return {}}
     case 'ev.bulk':{
       if(MODE==='teacher')throw {code:'forbidden'};
       var lb=s.events[p.gradeId];need(lb&&(p.items||[]).length);var mb=schMe();
-      p.items.slice(0,200).forEach(function(it){lb.push({id:'e'+uid(),type:'tema',title:String(it.title).slice(0,120),subjectId:p.subjectId,date:it.date,time:'',note:'',by:mb?mb.id:'',byName:mb?mb.name:'',at:Date.now()})});
+      p.items.slice(0,200).forEach(function(it){lb.push({id:'e'+uid(),type:'tema',title:String(it.title).slice(0,120),subjectId:p.subjectId,date:it.date||'',tri:+it.tri||1,unitNo:+it.unitNo||1,unitName:String(it.unitName||'').slice(0,100),ord:+it.ord||0,time:'',note:'',by:mb?mb.id:'',byName:mb?mb.name:'',at:Date.now()})});
       return {};
     }
     case 'ev.del':if(MODE==='teacher'&&((s.events[p.gradeId]||[]).filter(function(x){return x.id===p.id})[0]||{}).type==='tema')throw {code:'forbidden'};s.events[p.gradeId]=(s.events[p.gradeId]||[]).filter(function(x){return x.id!==p.id});return {};
@@ -4431,12 +4476,21 @@ function schoolSync(){
         if(sid&&t.subject!==sid){t.subject=sid;changed=true}
         if(moved)S.tasks.forEach(function(c){if(c.parent===t.id&&c.off&&!c.done){c.due=shift(t.due,-c.off);c.title='Repaso: '+t.title}});
       }
+      if(t&&!t.done){
+        var rsig=JSON.stringify(ev.rems||[])+'|'+ev.date;
+        if((t.schRem||'')!==rsig){var fired={},keep=(t.reminders||[]).filter(function(r){if(r.by==='school'&&r.fired)fired[r.at]=1;return r.by!=='school'});
+          var nr=(ev.rems||[]).slice(0,4).map(function(r,i){var at=shift(ev.date,-(+r.d||0))+'T'+(r.t||'18:00');return {id:'sr_'+ev.id+'_'+i,at:at,by:'school',fired:!!fired[at]||new Date(at).getTime()<Date.now()-6e4}});
+          t.reminders=keep.concat(nr);t.schRem=rsig;changed=true}
+      }
     }else if(ev.type==='tema'){
-      var wk=mondayOf(parseD(ev.date)),tp=S.topics.filter(function(x){return x.schoolEv===ev.id})[0];
-      if(!tp){S.topics.push({id:'st_'+ev.id,subject:sid,title:String(ev.title).slice(0,120),week:wk,conf:0,schoolEv:ev.id});changed=true}
-      else if(tp.title!==ev.title||tp.week!==wk){tp.title=String(ev.title).slice(0,120);tp.week=wk;changed=true}
+      var tp=S.topics.filter(function(x){return x.schoolEv===ev.id})[0];
+      var tw={title:String(ev.title).slice(0,120),week:ev.date?mondayOf(parseD(ev.date)):'',date:ev.date||'',tri:+ev.tri||1,unit:+ev.unitNo||1,unitName:String(ev.unitName||'').slice(0,100),ord:+ev.ord||0};
+      if(!tp){S.topics.push(Object.assign({id:'st_'+ev.id,subject:sid,conf:0,schoolEv:ev.id},tw));changed=true}
+      else{Object.keys(tw).forEach(function(k){if(tp[k]!==tw[k]){tp[k]=tw[k];changed=true}});if(sid&&tp.subject!==sid){tp.subject=sid;changed=true}}
     }
   });
+  var pf=ss.profile||{},stri={cur:+pf.curTri||0,n:+pf.nTri===4?4:3};
+  if(JSON.stringify(S.schoolTri||null)!==JSON.stringify(stri)){S.schoolTri=stri;changed=true}
   // Enlazar cada actividad del colegio con su tema (el tema puede tener otro id en la app del alumno)
   var evById={};evs.forEach(function(e){evById[e.id]=e});
   S.tasks.forEach(function(t){if(!t.schoolEv||!evById[t.schoolEv])return;var tid=evById[t.schoolEv].topicId,tp=tid?S.topics.filter(function(x){return x.schoolEv===tid})[0]:null,nt=tp?tp.id:'';
@@ -4660,8 +4714,8 @@ function vSubj(){
   }else if(tab==='temario'){
     var tl=S.topics.filter(function(t){return t.subject===s.id}).sort(function(a,b){return a.week<b.week?-1:a.week>b.week?1:0}),lw='',w0=mondayOf(new Date());
     out+='<div class="card">';
-    if(!tl.length)out+='<div class="empty">Aún no hay temas de '+esc(s.name)+'.'+(s.schoolSubj?' Aparecerán cuando tu docente los agregue al calendario.':'')+'</div>';
-    tl.forEach(function(t){if(t.week!==lw){lw=t.week;out+='<div class="group">'+(t.week===w0?'Esta semana · ':'')+'Semana '+weekLabel(t.week)+'</div>'}out+=topicRow(t)});
+    if(!tl.length)out+='<div class="empty">Aún no hay temas de '+esc(s.name)+'.'+(s.schoolSubj?' Aparecerán cuando tu colegio cargue el temario.':'')+'</div>';
+    out+=triPill()+topicListHtml(tl);
     out+='<button class="btn ghost block" data-act="temario" style="margin-top:12px">+ Cargar temario</button></div>';
   }else if(tab==='notas'){
     var gs=S.grades.filter(function(g){return g.subject===s.id}).sort(function(a,b){return a.date<b.date?1:-1});
@@ -4910,17 +4964,23 @@ function formEvent(gid,eid,pre){
     '<label for="ev1">Título</label><input id="ev1" maxlength="120" value="'+esc(e.title)+'" placeholder="Ej. Guía de ejercicios 3">'+
     '<label for="ev2">Materia</label><select id="ev2">'+(MODE==='school'?'<option value="">Todo el grado (sin materia)</option>':'')+sl.map(function(x){return '<option value="'+esc(x.id)+'"'+(x.id===e.subjectId?' selected':'')+'>'+esc(x.name)+'</option>'}).join('')+'</select><div id="evtpw"></div>'+
     '<div class="grid2" style="margin:0"><div><label for="ev3">Fecha</label><input type="date" id="ev3" value="'+esc(e.date)+'"></div><div><label for="ev4">Hora (opcional)</label><input type="time" id="ev4" value="'+esc(e.time||'')+'"></div></div>'+
-    '<label for="ev5">Indicaciones (opcional)</label><textarea id="ev5" rows="2" maxlength="300">'+esc(e.note||'')+'</textarea>'+
+    '<label for="ev5">Indicaciones (opcional)</label><textarea id="ev5" rows="2" maxlength="300">'+esc(e.note||'')+'</textarea><div id="evremw"></div>'+
     (eid?'':'<div id="evsec"></div><p class="muted" style="font-size:13px">Les aparece a todos los alumnos del grado en su calendario. Las tareas y exámenes se agregan a su lista de pendientes.</p>')+
     '<div class="row" style="margin-top:16px">'+(eid?'<button class="btn danger" id="evdel">Eliminar</button>':'')+'<button class="btn ghost" data-act="close" style="margin-left:auto">Cancelar</button><button class="btn" id="evok">Guardar</button></div>');
   var type=e.type,tName=e.typeName||'',tEmo=e.typeEmoji||'';
   var sjName=function(){var v=$('#ev2').value,z=(g.subjects||[]).filter(function(q){return q.id===v})[0];return z?z.name:''};
   var drawSec=function(){if(eid)return;var gs=sibGrades(g,sjName());$('#evsec').innerHTML=secBox(g,gs)};
   var drawTp=function(){var w=$('#evtpw');if(!w)return;var sid=$('#ev2').value;
-    var tl=type==='tema'||!sid?[]:schEvents(g.id).filter(function(x){return x.type==='tema'&&x.subjectId===sid}).sort(function(a,b){return a.date<b.date?-1:1});
-    if(!tl.some(function(x){return x.id===curTp}))curTp='';
-    w.innerHTML=tl.length?'<label for="evtp">📚 Tema del temario (opcional)</label><select id="evtp"><option value="">Sin tema</option>'+tl.map(function(x){return '<option value="'+esc(x.id)+'"'+(x.id===curTp?' selected':'')+'>'+esc(x.title)+' · sem. '+esc(weekLabel(mondayOf(parseD(x.date))))+'</option>'}).join('')+'</select>':'';
-    if(tl.length)$('#evtp').onchange=function(){curTp=this.value}};
+    var tl=type==='tema'||!sid?[]:schEvents(g.id).filter(function(x){return x.type==='tema'&&x.subjectId===sid}).map(function(x){return Object.assign({},x,{tri:+x.tri||1,unitNo:+x.unitNo||1,ord:+x.ord||0})});
+    if(!tl.some(function(x){return x.id===curTp}))curTp='';var NT=triN(schProf());
+    w.innerHTML=tl.length?'<label for="evtp">📚 Tema del temario (opcional)</label><select id="evtp"><option value="">Sin tema</option>'+unitsOf(tl).map(function(u){return '<optgroup label="'+esc(triLabel(u.tri,NT)+' · '+unitTitle(u))+'">'+u.temas.map(function(x){return '<option value="'+esc(x.id)+'"'+(x.id===curTp?' selected':'')+'>'+esc(x.title)+(x.date?' · '+esc(fmtDate(x.date)):'')+'</option>'}).join('')+'</optgroup>'}).join('')+'</select>':'';
+    if(tl.length)$('#evtp').onchange=function(){curTp=this.value};drawRem()};
+  var remSel={},remT=(e.rems&&e.rems[0]&&e.rems[0].t)||'18:00';(e.rems||[]).forEach(function(r){remSel[r.d]=1});
+  var drawRem=function(){var w=$('#evremw');if(!w)return;if(!(EV_TASK[type]||type==='otro')){w.innerHTML='';return}
+    if($('#evrt'))remT=$('#evrt').value||remT;
+    w.innerHTML='<label>🔔 Recordar a los alumnos (opcional)</label><div class="chips" id="evrem">'+[[0,'El mismo día'],[1,'1 día antes'],[2,'2 días antes'],[3,'3 días antes'],[7,'1 semana antes']].map(function(o){return '<button type="button" class="chipb'+(remSel[o[0]]?' on':'')+'" data-d="'+o[0]+'">'+o[1]+'</button>'}).join('')+'</div>'+
+      '<div class="row" style="gap:8px"><span class="muted">a las</span><input type="time" id="evrt" value="'+esc(remT)+'" style="width:auto"></div><p class="muted" style="font-size:12.5px;margin:4px 0 0">Les llega un aviso en su celular. También lo ven en su lista de pendientes.</p>';
+    Array.prototype.forEach.call(document.querySelectorAll('#evrem [data-d]'),function(b){b.onclick=function(){var k=+b.dataset.d;if(remSel[k])delete remSel[k];else remSel[k]=1;b.classList.toggle('on',!!remSel[k])}})};
   drawTp();$('#ev2').addEventListener('change',drawTp);
   if(!eid){drawSec();$('#ev2').addEventListener('change',drawSec)}
   var bindT=function(){Array.prototype.forEach.call(document.querySelectorAll('#evt [data-k]'),function(b){b.onclick=function(){type=b.dataset.k;tName=b.dataset.n||'';tEmo=b.dataset.e||'';Array.prototype.forEach.call(document.querySelectorAll('#evt [data-k]'),function(x){x.classList.toggle('on',x===b)});drawTp()}})};bindT();
@@ -4937,7 +4997,8 @@ function formEvent(gid,eid,pre){
     var t=$('#ev1').value.trim(),dt=$('#ev3').value;if(!t){toast('Escribe el título.');$('#ev1').focus();return}if(!dt){toast('Elige la fecha.');return}
     var sj=$('#ev2').value;if((EV_TASK[type]||type==='otro')&&!sj&&MODE!=='school'){toast('Elige la materia.');return}
     this.disabled=true;var b=this;
-    var base={id:'',type:type,typeName:type==='otro'?tName:'',typeEmoji:type==='otro'?tEmo:'',title:t,date:dt,time:$('#ev4').value,note:$('#ev5').value.trim()};
+    var rt=($('#evrt')&&$('#evrt').value)||remT,rems=(EV_TASK[type]||type==='otro')?Object.keys(remSel).map(Number).sort(function(a,b){return a-b}).map(function(k){return {d:k,t:rt}}):[];
+    var base={id:'',type:type,typeName:type==='otro'?tName:'',typeEmoji:type==='otro'?tEmo:'',title:t,date:dt,time:$('#ev4').value,note:$('#ev5').value.trim(),rems:rems};
     var sn=sjName(),others=eid?[]:secPicked();
     var tpO=type!=='tema'&&curTp?schEvents(g.id).filter(function(q){return q.id===curTp})[0]:null,tpT=tpO?tpO.title:'',done=[];
     var one=function(x){var sid=x.id===g.id?sj:(sj?sibSubj(x,sn):'');
@@ -5234,6 +5295,15 @@ function topicActsHtml(t){
 function taskTopicNote(tid){var tp=topicById(tid),h=document.querySelector('#sheet h3');if(tp&&h)h.insertAdjacentHTML('afterend','<div class="schnote">📚 <span>Tema: <b>'+esc(tp.title)+'</b></span></div>')}
 function parentTemarioCard(){
   if(MODE!=='parent'||view!=='p_act'||!curSid||!S.topics||!S.topics.length)return '';
+  var sch=schTopicsOf(S.topics);if(sch.length){
+    var units=unitsOf(sch),ck=curUnitKeys(units),out='<div class="card"><h2>📚 Temario de '+esc(firstName())+'</h2>'+triPill()+'<p class="muted" style="margin:6px 0 0">La unidad que ve ahora en cada materia, con sus temas. Toca ＋ para asignarle una actividad de ese tema.</p>',any=false;
+    S.subjects.forEach(function(s){units.filter(function(u){return u.sj===s.id&&ck[u.key]}).forEach(function(u){any=true;out+=unitBlock(u,true,true,true)})});
+    if(!any)out+='<div class="empty">No hay una unidad en curso en este momento.</div>';
+    return out+'<details class="tri"><summary><b>Ver todo el temario</b><span class="muted"> · todos los trimestres y unidades</span></summary>'+topicListHtml(S.topics,true)+'</details></div>';
+  }
+  return parentTemarioWeeks();
+}
+function parentTemarioWeeks(){
   var w0=mondayOf(new Date()),wks=[w0,shift(w0,7),shift(w0,14)],out='<div class="card"><h2>📚 Temario de '+esc(firstName())+'</h2><p class="muted" style="margin-top:-4px">Lo que ve en clase estas semanas. Toca ＋ para asignarle una actividad de ese tema.</p>';
   var any=false;
   wks.forEach(function(w,i){var l=topicsOfWeek(w);if(!l.length)return;any=true;out+='<div class="group">'+(i===0?'Esta semana':i===1?'Próxima semana':'En 2 semanas')+' · '+esc(weekLabel(w))+'</div>';
@@ -5241,95 +5311,280 @@ function parentTemarioCard(){
   if(!any)out+='<div class="empty">No hay temas para las próximas semanas.</div>';
   return out+'</div>';
 }
-/* Docente: un tema con sus actividades */
-function temaModal(gid,eid){
-  var g=schGrade(gid),e=schEvents(gid).filter(function(x){return x.id===eid})[0];if(!g||!e)return;
-  var sj=(g.subjects||[]).filter(function(x){return x.id===e.subjectId})[0],acts=schEvents(gid).filter(function(x){return x.topicId===eid}).sort(function(a,b){return a.date<b.date?-1:1});
-  openModal('<h3>📚 '+esc(e.title)+'</h3><p class="muted" style="margin:0">'+(sj?esc(sj.name)+' · ':'')+esc(gName(g))+' · semana del '+esc(weekLabel(mondayOf(parseD(e.date))))+'</p>'+
-    '<label>Actividades de este tema</label>'+(acts.length?acts.map(function(a){return evRow(a,g,false)}).join(''):'<p class="muted" style="margin:0">Todavía no hay actividades para este tema.</p>')+
-    '<div class="row wrap" style="gap:8px;margin-top:14px"><button class="btn small" data-act="sc-tema-act" data-id="'+esc(gid+'|'+eid)+'">＋ Actividad para este tema</button>'+(MODE==='school'?'<button class="btn ghost small" data-act="sc-ev-edit" data-id="'+esc(gid+'|'+eid)+'">'+ic('edit')+'Editar tema</button>':'')+
-    '<button class="btn ghost" data-act="close" style="margin-left:auto">Cerrar</button></div>');
+/* ================= Temario: Trimestre › Unidad › Temas =================
+   El colegio define trimestres, unidades y temas (sin fechas), una vez para todas las secciones.
+   La docente pone la fecha de cada tema; la duración de la unidad sale del primer al último tema. */
+var LVT=[],LVU=[],TU=[];
+function triN(p){return +((p||{}).nTri)===4?4:3}
+function triLabel(n,tot){return (tot===4?'Periodo ':'Trimestre ')+n}
+function schProf(){var s=SCH();return (s&&s.profile)||{}}
+function triCurStaff(){return +schProf().curTri||1}
+function temaSort(a,b){return (a.tri||1)-(b.tri||1)||(a.unitNo||1)-(b.unitNo||1)||(a.ord||0)-(b.ord||0)||String(a.date||'').localeCompare(String(b.date||''))||String(a.title).localeCompare(String(b.title))}
+function rangeTxt(ds){ds=ds.filter(Boolean).sort();if(!ds.length)return '';return ds[0]===ds[ds.length-1]?fmtDate(ds[0]):fmtDate(ds[0])+' al '+fmtDate(ds[ds.length-1])}
+function unitTitle(u){return 'Unidad '+u.unitNo+(u.unitName?': '+u.unitName:'')}
+/* Agrupa temas en unidades (por materia, trimestre y número de unidad) */
+function unitsOf(list){
+  var m={},out=[];
+  list.forEach(function(t){var sj=t.subject||t.subjectId||'',k=sj+'|'+(t.tri||1)+'|'+(t.unitNo||1);
+    if(!m[k]){m[k]={key:k,sj:sj,tri:t.tri||1,unitNo:t.unitNo||1,unitName:t.unitName||'',temas:[]};out.push(m[k])}
+    if(!m[k].unitName&&t.unitName)m[k].unitName=t.unitName;m[k].temas.push(t)});
+  out.forEach(function(u){u.temas.sort(temaSort)});
+  return out.sort(function(a,b){return a.tri-b.tri||a.unitNo-b.unitNo||(a.sj<b.sj?-1:1)});
 }
+function stripBullet(l){return String(l).replace(/^\s*([-•*·▪●○◦]|\d+(\.\d+)*[.)\-:]?\s+|[a-zA-Z][.)])\s*/,'').replace(/\s+/g,' ').trim()}
 
-/* ---------- Temario por materia y grado (lo carga el docente) ---------- */
-function temarioCard(g,sj){
-  var tl=schEvents(g.id).filter(function(e){return e.type==='tema'&&e.subjectId===sj.id}).sort(function(a,b){return a.date<b.date?-1:a.date>b.date?1:0});
-  var w0=mondayOf(new Date()),out='<div class="card"><div class="row between wrap" style="gap:8px"><h2 style="margin:0">📚 Temario de '+esc(sj.name)+'</h2>'+
-    '</div><p class="muted" style="margin:6px 0 0">Lo carga la administración del colegio para todo '+esc(g.name)+'. Tú, tus alumnos y sus familias lo ven semana por semana. Toca un tema para asignarle tareas, exámenes, laboratorios y más.</p>';
-  if(!tl.length)return out+'<div class="empty">La administración todavía no ha cargado el temario de '+esc(sj.name)+'. Mientras tanto puedes agregar actividades con «+ Agregar».</div></div>';
-  var lw='';
-  tl.forEach(function(e){var wk=mondayOf(parseD(e.date));if(wk!==lw){lw=wk;out+='<div class="group">'+(wk===w0?'Esta semana · ':'')+'Semana '+esc(weekLabel(wk))+'</div>'}
-    var na=schEvents(g.id).filter(function(x){return x.topicId===e.id}).length;
-    out+='<div class="item" data-act="sc-tema" data-id="'+esc(g.id+'|'+e.id)+'" style="cursor:pointer"><span class="evi">📚</span><div class="grow"><div class="title">'+esc(e.title)+'</div><div class="muted">'+(na?na+' '+plural(na,'actividad','actividades'):'Sin actividades · toca para asignar')+'</div></div>'+ic('chevr')+'</div>'});
-  return out+'</div>';
-}
-/* ---------- Temario por grado: lo carga la administración una vez para todas las secciones ---------- */
-var LVT=[];
+/* ---------- Colegio: un temario por grado y materia para todas las secciones ---------- */
 function lvNames(){var seen={},out=[];schGrades().forEach(function(g){if(!seen[g.name]){seen[g.name]=1;out.push(g.name)}});return out}
 function lvSecs(lv,sjn){return schGrades().filter(function(g){return g.name===lv&&(!sjn||(g.subjects||[]).some(function(z){return z.name===sjn}))})}
 function lvSubjects(lv){var seen={},out=[];lvSecs(lv).forEach(function(g){(g.subjects||[]).forEach(function(z){if(!seen[z.name]){seen[z.name]=1;out.push(z)}})});return out}
-/* Junta el mismo tema de todas las secciones (mismo título y fecha) */
+/* El mismo tema en todas las secciones (mismo trimestre, unidad y nombre) */
 function lvTemas(lv,sjn){
   var m={},out=[];
   lvSecs(lv,sjn).forEach(function(g){var sid=sibSubj(g,sjn);schEvents(g.id).forEach(function(e){
-    if(e.type!=='tema'||e.subjectId!==sid)return;var k=e.date+'|'+String(e.title).toLowerCase();
-    if(!m[k]){m[k]={title:e.title,date:e.date,refs:[]};out.push(m[k])}m[k].refs.push({g:g,id:e.id})})});
-  return out.sort(function(a,b){return a.date<b.date?-1:a.date>b.date?1:(a.title<b.title?-1:1)});
+    if(e.type!=='tema'||e.subjectId!==sid)return;var k=(e.tri||1)+'|'+(e.unitNo||1)+'|'+String(e.title).toLowerCase();
+    if(!m[k]){m[k]={title:e.title,tri:+e.tri||1,unitNo:+e.unitNo||1,unitName:e.unitName||'',ord:+e.ord||0,refs:[]};out.push(m[k])}
+    m[k].refs.push({g:g,id:e.id,date:e.date||''})})});
+  return out.sort(temaSort);
 }
 function lvTemaOf(gid,eid){
   var g=schGrade(gid),e=schEvents(gid).filter(function(x){return x.id===eid})[0];if(!g||!e)return null;
   var sj=(g.subjects||[]).filter(function(z){return z.id===e.subjectId})[0];if(!sj)return null;
-  SC.tlv=g.name;SC.tsj=sj.name;
+  SC.tlv=g.name;SC.tsj=sj.name;SC.atri=+e.tri||1;
   return lvTemas(g.name,sj.name).filter(function(t){return t.refs.some(function(r){return r.id===eid})})[0]||null;
 }
+function actsOfRefs(refs){var n=0;refs.forEach(function(r){n+=schEvents(r.g.id).filter(function(x){return x.topicId===r.id}).length});return n}
 function vSchTemario(){
   var s=SCH();if(!s)return schLoading();
   var lvs=lvNames();
   if(!lvs.length)return schHead()+'<div class="card"><div class="empty">Primero crea los grados del colegio en «Grados».</div></div>';
   if(lvs.indexOf(SC.tlv)<0)SC.tlv=lvs[0];
   var sjs=lvSubjects(SC.tlv);if(!sjs.some(function(z){return z.name===SC.tsj}))SC.tsj=sjs[0]?sjs[0].name:'';
+  var p=schProf(),N=triN(p),cur=triCurStaff();if(!SC.atri||SC.atri>N)SC.atri=cur;
   var out=schHead()+'<div class="tabs">'+lvs.map(function(l){return '<button data-act="sc-tlv" data-id="'+esc(l)+'" class="'+(l===SC.tlv?'active':'')+'">'+esc(l)+'</button>'}).join('')+'</div>';
   if(!sjs.length)return out+'<div class="card"><div class="empty">'+esc(SC.tlv)+' todavía no tiene materias. Agrégalas en «Grados».</div></div>';
   out+='<div class="chips">'+sjs.map(function(z){return '<button class="chipb'+(z.name===SC.tsj?' on':'')+'" data-act="sc-tsj" data-id="'+esc(z.name)+'"><span class="sdot" style="background:'+esc(z.color)+'"></span>'+esc(z.name)+'</button>'}).join('')+'</div>';
-  var secs=lvSecs(SC.tlv,SC.tsj),tl=lvTemas(SC.tlv,SC.tsj),w0=mondayOf(new Date());LVT=tl;
+  var secs=lvSecs(SC.tlv,SC.tsj),all=lvTemas(SC.tlv,SC.tsj);LVT=all;
+  var us=unitsOf(all).filter(function(u){return u.tri===SC.atri});LVU=us;
   var tch=[];secs.forEach(function(g){var z=(g.subjects||[]).filter(function(q){return q.name===SC.tsj})[0],t=z&&staffById(z.teacherId);if(t&&tch.indexOf(t.name)<0)tch.push(t.name)});
+  out+='<div class="tabs">';for(var i=1;i<=N;i++){var nu=unitsOf(all).filter(function(u){return u.tri===i}).length;
+    out+='<button data-act="sc-atri" data-id="'+i+'" class="'+(i===SC.atri?'active':'')+'" title="'+nu+' '+plural(nu,'unidad','unidades')+'">'+triLabel(i,N)+(i===cur?' <span class="tridot" aria-label="en curso"></span>':'')+'</button>'}
+  out+='</div>';
   out+='<div class="card"><div class="row between wrap" style="gap:8px"><h2 style="margin:0">📚 '+esc(SC.tsj)+' · '+esc(SC.tlv)+'</h2>'+
-    '<div class="row" style="gap:6px"><button class="btn ghost small" data-act="sc-atem1">+ Un tema</button><button class="btn small" data-act="sc-atembulk">Cargar temario</button></div></div>'+
-    '<p class="muted" style="margin:6px 0 0">Un solo temario para '+(secs.length>1?'las secciones '+esc(secList(secs)):esc(gName(secs[0])))+'. Lo ven '+(tch.length?esc(tch.join(', ')):'la docente')+', los alumnos y sus familias; la docente asigna las actividades de cada tema.</p>';
-  if(!tl.length)return out+'<div class="empty">Todavía no hay temas. Toca «Cargar temario»: pega la lista o sube un archivo (Word, Excel, PDF o texto) y la app la reparte por semanas.</div></div>';
-  var lw='';
-  tl.forEach(function(t,i){var wk=mondayOf(parseD(t.date));if(wk!==lw){lw=wk;out+='<div class="group">'+(wk===w0?'Esta semana · ':'')+'Semana '+esc(weekLabel(wk))+'</div>'}
-    var na=0;t.refs.forEach(function(r){na+=schEvents(r.g.id).filter(function(x){return x.topicId===r.id}).length});
-    var part=t.refs.length<secs.length?' · solo en '+esc(secList(t.refs.map(function(r){return r.g}))):'';
-    out+='<div class="item" data-act="sc-atema" data-id="'+i+'" style="cursor:pointer"><span class="evi">📚</span><div class="grow"><div class="title">'+esc(t.title)+'</div><div class="muted">'+(na?na+' '+plural(na,'actividad','actividades'):'Sin actividades todavía')+part+'</div></div>'+ic('chevr')+'</div>'});
-  return out+'<div class="row" style="margin-top:12px"><button class="btn danger small" data-act="sc-atemclr" style="margin-left:auto">Vaciar este temario</button></div></div>';
+    '<div class="row" style="gap:6px"><button class="btn ghost small" data-act="sc-aunit-new">+ Unidad</button><button class="btn small" data-act="sc-atembulk">Cargar temario</button></div></div>'+
+    '<div class="row wrap" style="gap:8px;margin-top:8px"><b>'+triLabel(SC.atri,N)+'</b>'+(SC.atri===cur?'<span class="badge good">En curso</span>':'<button class="btn ghost small" data-act="sc-atricur">Marcar como '+(N===4?'periodo':'trimestre')+' en curso</button>')+'</div>'+
+    '<p class="muted" style="margin:8px 0 0">Un solo temario para '+(secs.length>1?'las secciones '+esc(secList(secs)):esc(gName(secs[0])))+'. '+(tch.length?esc(tch.join(', ')):'La docente')+' pone la fecha de cada tema y le asigna actividades; alumnos y familias lo ven por '+(N===4?'periodo':'trimestre')+', unidad y tema.</p>';
+  if(!us.length)out+='<div class="empty">Este '+(N===4?'periodo':'trimestre')+' todavía no tiene unidades. Toca «+ Unidad», o «Cargar temario» para pegar o subir el plan con sus unidades y temas.</div>';
+  us.forEach(function(u,ui){
+    var ds=[];u.temas.forEach(function(t){t.refs.forEach(function(r){ds.push(r.date)})});var rg=rangeTxt(ds);
+    out+='<div class="unit"><div class="unit-h" data-act="sc-aunit" data-id="'+ui+'"><div class="grow"><div class="unit-t">'+esc(unitTitle(u))+'</div><div class="muted">'+u.temas.length+' '+plural(u.temas.length,'tema','temas')+' · '+(rg?'del '+esc(rg):'sin fechas todavía')+'</div></div><span class="unit-ed">'+ic('edit')+'</span></div>';
+    u.temas.forEach(function(t,ti){
+      var dd=t.refs.map(function(r){return r.date}).filter(Boolean),na=actsOfRefs(t.refs),part=t.refs.length<secs.length?' · solo en '+esc(secList(t.refs.map(function(r){return r.g}))):'';
+      out+='<div class="item" data-act="sc-atema" data-id="'+ui+'|'+ti+'" style="cursor:pointer"><span class="evi">📚</span><div class="grow"><div class="title">'+esc(t.title)+'</div><div class="muted">'+(dd.length?esc(fmtDate(dd.sort()[0])):'Sin fecha')+(na?' · '+na+' '+plural(na,'actividad','actividades'):'')+part+'</div></div>'+ic('chevr')+'</div>'});
+    out+='<button class="btn ghost small" data-act="sc-atem1" data-id="'+ui+'" style="margin-top:6px">+ Tema</button></div>';
+  });
+  out+='<div class="row wrap between" style="gap:8px;margin-top:14px;border-top:1px solid var(--line);padding-top:12px"><div class="row wrap" style="gap:6px"><span class="muted">El año tiene:</span>'+
+    '<button class="chipb'+(N===3?' on':'')+'" data-act="sc-ntri" data-id="3">3 trimestres</button><button class="chipb'+(N===4?' on':'')+'" data-act="sc-ntri" data-id="4">4 periodos</button></div>'+
+    (all.length?'<button class="btn danger small" data-act="sc-atemclr">Vaciar temario de '+esc(SC.tsj)+'</button>':'')+'</div></div>';
+  return out;
 }
-function formLvTema(t){
-  var secs=lvSecs(SC.tlv,SC.tsj);if(!secs.length)return;
-  var dt=t?t.date:mondayOf(new Date()),na=0;
-  if(t)t.refs.forEach(function(r){na+=schEvents(r.g.id).filter(function(x){return x.topicId===r.id}).length});
-  openModal('<h3>'+(t?'Editar tema':'Nuevo tema')+'</h3><p class="muted" style="margin:0">'+esc(SC.tsj)+' · '+esc(SC.tlv)+(t?' · '+esc(secList(t.refs.map(function(r){return r.g}))):'')+'</p>'+
-    '<label for="lt1">Tema</label><input id="lt1" maxlength="120" value="'+esc(t?t.title:'')+'" placeholder="Ej. Ecuaciones de primer grado">'+
-    '<label for="lt2">Fecha (semana en que se ve)</label><input type="date" id="lt2" value="'+esc(dt)+'">'+
-    (t?(na?'<p class="muted" style="font-size:13px">Tiene '+na+' '+plural(na,'actividad','actividades')+' de la docente. Si cambias el tema, siguen ligadas.</p>':''):secBox(secs[0],secs.slice(1)))+
+function triOpts(sel,N){var o='';for(var i=1;i<=N;i++)o+='<option value="'+i+'"'+(i===sel?' selected':'')+'>'+triLabel(i,N)+'</option>';return o}
+function lvSecsOfUnit(u,secs){var gs=[];(u?u.temas:[]).forEach(function(t){t.refs.forEach(function(r){if(gs.indexOf(r.g)<0)gs.push(r.g)})});return gs.length?gs:secs}
+function formLvUnit(u){
+  var secs=lvSecs(SC.tlv,SC.tsj);if(!secs.length)return;var N=triN(schProf()),all=lvTemas(SC.tlv,SC.tsj);
+  var nx=all.reduce(function(m,t){return Math.max(m,t.unitNo)},0)+1;
+  openModal('<h3>'+(u?'Editar unidad':'Nueva unidad')+'</h3><p class="muted" style="margin:0">'+esc(SC.tsj)+' · '+esc(SC.tlv)+'</p>'+
+    '<div class="grid2" style="margin:0"><div><label for="lu1">'+(N===4?'Periodo':'Trimestre')+'</label><select id="lu1">'+triOpts(u?u.tri:SC.atri,N)+'</select></div><div><label for="lu2">Número de unidad</label><input type="number" id="lu2" min="1" max="40" value="'+(u?u.unitNo:nx)+'"></div></div>'+
+    '<label for="lu3">Nombre de la unidad</label><input id="lu3" maxlength="100" value="'+esc(u?u.unitName:'')+'" placeholder="Ej. Ecuaciones de primer grado">'+
+    '<label for="lu4">'+(u?'Agregar temas (uno por línea, opcional)':'Temas de la unidad (uno por línea)')+'</label><textarea id="lu4" rows="5" placeholder="Ej.\nEcuaciones de primer grado\nDespeje de variables\nProblemas con ecuaciones"></textarea>'+
+    (u?'<p class="muted" style="font-size:13px">Tiene '+u.temas.length+' '+plural(u.temas.length,'tema','temas')+'. Para cambiar o quitar uno, tócalo en la lista.</p>':secBox(secs[0],secs.slice(1)))+
+    '<div class="row" style="margin-top:16px">'+(u?'<button class="btn danger" id="ludel">Eliminar</button>':'')+'<button class="btn ghost" data-act="close" style="margin-left:auto">Cancelar</button><button class="btn" id="luok">Guardar</button></div>');
+  $('#luok').onclick=function(){
+    var tri=+$('#lu1').value||1,no=Math.max(1,Math.min(40,Math.floor(+$('#lu2').value||0))),name=$('#lu3').value.trim().replace(/\s+/g,' ').slice(0,100);
+    var lines=$('#lu4').value.split(/\n+/).map(stripBullet).filter(function(l){return l.length>1}).slice(0,100);
+    if(!+$('#lu2').value){toast('Escribe el número de la unidad.');$('#lu2').focus();return}
+    if(!u&&!lines.length){toast('Escribe al menos un tema.');$('#lu4').focus();return}
+    var clash=all.some(function(t){return t.tri===tri&&t.unitNo===no&&!(u&&u.tri===tri&&u.unitNo===no)});
+    if(clash){toast('Ya existe la Unidad '+no+' en '+triLabel(tri,N)+'. Usa otro número o agrega los temas en esa unidad.');return}
+    this.disabled=true;var b=this,jobs=[];
+    if(u&&(u.tri!==tri||u.unitNo!==no||u.unitName!==name))u.temas.forEach(function(t){t.refs.forEach(function(r){jobs.push(function(){return schAct('ev.save',{gradeId:r.g.id,id:r.id,type:'tema',typeName:'',typeEmoji:'',topicId:'',title:t.title,subjectId:sibSubj(r.g,SC.tsj),tri:tri,unitNo:no,unitName:name,ord:t.ord,date:'',time:'',note:''})})})});
+    if(lines.length){var base=u?u.temas.reduce(function(m,t){return Math.max(m,t.ord+1)},0):0,have={};(u?u.temas:[]).forEach(function(t){have[t.title.toLowerCase()]=1});
+      var items=lines.filter(function(l){return !have[l.toLowerCase()]}).map(function(l,i){return {title:l.slice(0,120),tri:tri,unitNo:no,unitName:name,ord:base+i}});
+      var gs=u?lvSecsOfUnit(u,secs):[secs[0]].concat(secPicked());
+      if(items.length)gs.forEach(function(g){jobs.push(function(){return schAct('ev.bulk',{gradeId:g.id,subjectId:sibSubj(g,SC.tsj),items:items})})})}
+    SC.atri=tri;
+    seqAll(jobs,function(f){return f()}).then(function(){closeModal();toast(u?'Unidad actualizada ✅':'Unidad '+no+' agregada ✅')},function(){b.disabled=false});
+  };
+  if(u)$('#ludel').onclick=function(){ask('Se quita «'+unitTitle(u)+'» con sus '+u.temas.length+' temas, en todas las secciones. Las actividades de la docente se quedan en el calendario.','Eliminar unidad',function(){
+    var refs=[];u.temas.forEach(function(t){refs=refs.concat(t.refs)});seqAll(refs,function(r){return schAct('ev.del',{gradeId:r.g.id,id:r.id})}).then(function(){toast('Unidad eliminada')})})};
+}
+function formLvTema(t,u0){
+  var secs=lvSecs(SC.tlv,SC.tsj);if(!secs.length)return;var N=triN(schProf()),us=unitsOf(lvTemas(SC.tlv,SC.tsj));
+  var curU=t?(t.tri+'|'+t.unitNo):u0?(u0.tri+'|'+u0.unitNo):'';
+  var dates=t?t.refs.map(function(r){return esc(r.g.section||gName(r.g))+': '+(r.date?esc(fmtDate(r.date)):'sin fecha')}).join(' · '):'',na=t?actsOfRefs(t.refs):0;
+  openModal('<h3>'+(t?'Editar tema':'Nuevo tema')+'</h3><p class="muted" style="margin:0">'+esc(SC.tsj)+' · '+esc(SC.tlv)+'</p>'+
+    '<label for="lt1">Tema</label><input id="lt1" maxlength="120" value="'+esc(t?t.title:'')+'" placeholder="Ej. Despeje de variables">'+
+    '<label for="lt2">Unidad</label><select id="lt2">'+us.map(function(u){var k=u.tri+'|'+u.unitNo;return '<option value="'+k+'"'+(k===curU?' selected':'')+'>'+esc(triLabel(u.tri,N)+' · '+unitTitle(u))+'</option>'}).join('')+'</select>'+
+    (t?'<p class="muted" style="font-size:13px">Fecha de la docente · '+dates+(na?'<br>'+na+' '+plural(na,'actividad ligada','actividades ligadas')+' (se conservan).':'')+'</p>':'')+
     '<div class="row" style="margin-top:16px">'+(t?'<button class="btn danger" id="ltdel">Eliminar</button>':'')+'<button class="btn ghost" data-act="close" style="margin-left:auto">Cancelar</button><button class="btn" id="ltok">Guardar</button></div>');
   $('#ltok').onclick=function(){
-    var ti=$('#lt1').value.trim(),d=$('#lt2').value;if(!ti){toast('Escribe el tema.');$('#lt1').focus();return}if(!d){toast('Elige la fecha.');return}
-    this.disabled=true;var b=this;
-    var list=t?t.refs:[secs[0]].concat(secPicked()).map(function(g){return {g:g,id:''}});
-    seqAll(list,function(r){return schAct('ev.save',{gradeId:r.g.id,id:r.id,type:'tema',typeName:'',typeEmoji:'',topicId:'',title:ti,subjectId:sibSubj(r.g,SC.tsj),date:d,time:'',note:''})})
-      .then(function(){closeModal();toast(t?'Tema actualizado en '+secList(list.map(function(r){return r.g}))+' ✅':'Tema agregado ✅')},function(){b.disabled=false});
+    var ti=$('#lt1').value.trim().replace(/\s+/g,' '),k=$('#lt2').value.split('|'),u=us.filter(function(x){return x.tri===+k[0]&&x.unitNo===+k[1]})[0];
+    if(!ti){toast('Escribe el tema.');$('#lt1').focus();return}if(!u){toast('Elige la unidad.');return}
+    this.disabled=true;var b=this,ord=u.temas.reduce(function(m,x){return Math.max(m,x.ord+1)},0);
+    var p=t?seqAll(t.refs,function(r){return schAct('ev.save',{gradeId:r.g.id,id:r.id,type:'tema',typeName:'',typeEmoji:'',topicId:'',title:ti,subjectId:sibSubj(r.g,SC.tsj),tri:u.tri,unitNo:u.unitNo,unitName:u.unitName,ord:t.tri===u.tri&&t.unitNo===u.unitNo?t.ord:ord,date:'',time:'',note:''})})
+      :seqAll(lvSecsOfUnit(u,secs),function(g){return schAct('ev.bulk',{gradeId:g.id,subjectId:sibSubj(g,SC.tsj),items:[{title:ti.slice(0,120),tri:u.tri,unitNo:u.unitNo,unitName:u.unitName,ord:ord}]})});
+    p.then(function(){closeModal();toast(t?'Tema actualizado ✅':'Tema agregado ✅')},function(){b.disabled=false});
   };
   if(t)$('#ltdel').onclick=function(){ask('Se quita el tema «'+t.title+'» de '+secList(t.refs.map(function(r){return r.g}))+'. Las actividades que ya tiene se quedan en el calendario.','Eliminar',function(){
     seqAll(t.refs,function(r){return schAct('ev.del',{gradeId:r.g.id,id:r.id})}).then(function(){toast('Tema eliminado')})})};
 }
 function lvClear(){
   var tl=LVT.slice();if(!tl.length)return;
-  ask('Se borran los '+tl.length+' temas de '+SC.tsj+' en '+SC.tlv+' (todas las secciones). Úsalo si vas a cargar el temario de nuevo. Las actividades de la docente se quedan en el calendario.','Vaciar temario',function(){
+  ask('Se borran los '+tl.length+' temas de '+SC.tsj+' en '+SC.tlv+' (todos los trimestres y secciones). Úsalo si vas a cargar el temario de nuevo. Las actividades de la docente se quedan en el calendario.','Vaciar temario',function(){
     var refs=[];tl.forEach(function(t){refs=refs.concat(t.refs)});
     seqAll(refs,function(r){return schAct('ev.del',{gradeId:r.g.id,id:r.id})}).then(function(){toast('Temario vacío. Ya puedes cargarlo de nuevo.')})});
 }
+/* Texto del cuadro → trimestres, unidades y temas.
+   «Trimestre 2» cambia de trimestre; «Unidad 3: Nombre» abre una unidad; las demás líneas son temas de esa unidad. */
+function temarioParse(text,tri0,existing){
+  var tri=tri0,unit=null,units=[],items=[],ord={},have={},maxNo=0,dup=0;
+  (existing||[]).forEach(function(t){have[t.tri+'|'+t.unitNo+'|'+t.title.toLowerCase()]=1;var k=t.tri+'|'+t.unitNo;ord[k]=Math.max(ord[k]||0,t.ord+1);maxNo=Math.max(maxNo,t.unitNo)});
+  String(text).split(/\n+/).forEach(function(l){
+    l=String(l).trim();if(!l)return;
+    var tt=triOf(l.replace(/[:.\-–—]+$/,''));if(tt&&l.length<40){tri=tt;unit=null;return}
+    var uu=unitOf(l);if(uu){unit=units.filter(function(x){return x.tri===tri&&x.no===uu.n})[0]||null;if(!unit){unit={tri:tri,no:uu.n,name:uu.name,n:0};units.push(unit)}else if(!unit.name&&uu.name)unit.name=uu.name;maxNo=Math.max(maxNo,uu.n);return}
+    var d='',m=/^\s*(\d{1,2}[\/.\-]\d{1,2}[\/.\-]\d{2,4}|\d{4}-\d{1,2}-\d{1,2})\s*[-–—:·|,;]?\s*(.*)$/.exec(l);
+    if(m){d=cellDate(m[1]);if(d)l=m[2]}
+    l=stripBullet(l);if(l.length<2)return;
+    if(!unit){unit={tri:tri,no:++maxNo,name:'',n:0};units.push(unit)}
+    var k=unit.tri+'|'+unit.no;if(have[k+'|'+l.toLowerCase()]){dup++;return}have[k+'|'+l.toLowerCase()]=1;
+    ord[k]=ord[k]||0;unit.n++;
+    items.push({title:l.slice(0,120),date:d,tri:unit.tri,unitNo:unit.no,unitName:unit.name,ord:ord[k]++});
+  });
+  return {items:items.slice(0,200),units:units.filter(function(u){return u.n}),dup:dup};
+}
+function formTemarioBulk(secs,sjn){
+  if(!secs||!secs.length)return;var g=secs[0],N=triN(schProf()),existing=lvTemas(g.name,sjn);
+  openModal('<h3>Cargar temario · '+esc(sjn)+' · '+esc(g.name)+'</h3><p class="muted" style="margin:0">Sube el plan de estudio o pégalo. Escribe «Trimestre 1», «Unidad 1: Nombre» y debajo sus temas. Las fechas las pone la docente.</p>'+
+    '<div class="tfile"><label class="btn ghost small" for="tbf" style="margin:0">📎 Subir archivo</label><input type="file" id="tbf" accept=".docx,.xlsx,.xlsm,.pdf,.txt,.csv,.tsv,text/plain,text/csv,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden><span class="muted" id="tbfs">Word (.docx), Excel (.xlsx), PDF, CSV o texto</span></div>'+
+    '<label for="tb1">Temario</label><textarea id="tb1" rows="10" placeholder="Ej.\nTrimestre 1\nUnidad 1: Números positivos y negativos\nNúmeros positivos y negativos\nValor absoluto\nUnidad 2: Suma y resta\nSuma de enteros\nResta de enteros"></textarea>'+
+    '<label for="tb2">Si el texto no dice el '+(N===4?'periodo':'trimestre')+', va en</label><select id="tb2">'+triOpts(SC.atri||triCurStaff(),N)+'</select>'+
+    '<div id="tbp" class="tbprev"></div>'+secBox(g,secs.slice(1))+
+    '<div class="row" style="margin-top:16px"><button class="btn ghost" data-act="close">Cancelar</button><button class="btn" id="tbok" style="margin-left:auto">Guardar temario</button></div>');
+  var plan=function(){return temarioParse($('#tb1').value,+$('#tb2').value||1,existing)};
+  var prev=function(){var p=plan();
+    if(!p.items.length){$('#tbp').innerHTML=p.dup?'<span class="muted">Esos temas ya están en el temario.</span>':'';return}
+    $('#tbp').innerHTML='<b>'+p.units.length+' '+plural(p.units.length,'unidad','unidades')+' · '+p.items.length+' '+plural(p.items.length,'tema','temas')+'</b>'+(p.dup?' <span class="muted">('+p.dup+' ya estaban y no se repiten)</span>':'')+
+      '<ul>'+p.units.slice(0,14).map(function(u){return '<li>'+esc(triLabel(u.tri,N))+' · Unidad '+u.no+(u.name?': '+esc(u.name):'')+' — '+u.n+' '+plural(u.n,'tema','temas')+'</li>'}).join('')+(p.units.length>14?'<li>…</li>':'')+'</ul>'};
+  ['#tb1','#tb2'].forEach(function(q){$(q).addEventListener('input',prev);$(q).addEventListener('change',prev)});
+  $('#tbf').onchange=function(){var f=this.files&&this.files[0];if(!f)return;var inp=this;$('#tbfs').textContent='Leyendo '+f.name+'…';
+    readTemarioFile(f).then(function(ls){inp.value='';
+      if(!ls.length){$('#tbfs').textContent='No encontré temas en '+f.name+'.';return}
+      var ta=$('#tb1');ta.value=(ta.value.trim()?ta.value.trim()+'\n':'')+ls.join('\n');prev();
+      $('#tbfs').textContent='✅ '+f.name+': '+ls.length+' '+plural(ls.length,'línea','líneas')+'. Revisa y borra las que no sean temas.';ta.scrollTop=0},
+    function(err){inp.value='';var m=err&&err.message;
+      $('#tbfs').textContent=m==='formato'?'Ese formato no se puede leer. Guárdalo como Word (.docx), Excel (.xlsx), PDF o texto.':m==='grande'?'El archivo es muy grande (máximo 8 MB).':m==='lib'?'No se pudo abrir el lector de archivos. Revisa tu internet e intenta de nuevo.':'No se pudo leer el archivo. Prueba copiando y pegando los temas.'})};
+  $('#tbok').onclick=function(){
+    var p=plan(),it=p.items;if(!it.length){toast(p.dup?'Esos temas ya están en el temario.':'Agrega al menos un tema.');$('#tb1').focus();return}
+    this.disabled=true;var b=this,done=[];
+    seqAll([g].concat(secPicked()),function(x){return schAct('ev.bulk',{gradeId:x.id,subjectId:sibSubj(x,sjn),items:it}).then(function(){done.push(x)})}).then(function(){closeModal();
+      SC.atri=it[0].tri;toast(it.length+' '+plural(it.length,'tema guardado','temas guardados')+' en '+p.units.length+' '+plural(p.units.length,'unidad','unidades')+' 📚')},
+      function(){b.disabled=false;if(done.length){closeModal();toast('Se guardó en '+secList(done)+', pero no en las demás secciones. Intenta de nuevo en esas.')}});
+  };
+}
 
+/* ---------- Docente: temario por trimestre; pone fechas y asigna actividades ---------- */
+function teacherTemas(g,sj){return schEvents(g.id).filter(function(e){return e.type==='tema'&&e.subjectId===sj.id}).map(function(e){return Object.assign({},e,{tri:+e.tri||1,unitNo:+e.unitNo||1,ord:+e.ord||0})})}
+function temarioCard(g,sj){
+  var N=triN(schProf()),cur=triCurStaff();if(!SC.ttri||SC.ttri>N)SC.ttri=cur;
+  var tl=teacherTemas(g,sj),all=unitsOf(tl);TU=all.filter(function(u){return u.tri===SC.ttri});
+  var out='<div class="card"><h2 style="margin:0">📚 Temario de '+esc(sj.name)+'</h2>'+
+    '<p class="muted" style="margin:6px 0 0">Lo define la administración para todo '+esc(g.name)+'. Tú pones la fecha de cada tema con 📅 y la app calcula cuánto dura cada unidad. Toca un tema para asignarle tareas, exámenes, laboratorios y recordatorios.</p>';
+  if(!tl.length)return out+'<div class="empty">La administración todavía no ha cargado el temario de '+esc(sj.name)+'. Mientras tanto puedes agregar actividades con «+ Agregar».</div></div>';
+  out+='<div class="tabs" style="margin-top:10px">';for(var i=1;i<=N;i++){var nu=all.filter(function(u){return u.tri===i}).length;
+    out+='<button data-act="sc-ttri" data-id="'+i+'" class="'+(i===SC.ttri?'active':'')+'" title="'+nu+' '+plural(nu,'unidad','unidades')+'">'+triLabel(i,N)+(i===cur?' <span class="tridot" aria-label="en curso"></span>':'')+'</button>'}
+  out+='</div>';
+  if(!TU.length)out+='<div class="empty">Sin unidades en este '+(N===4?'periodo':'trimestre')+'.</div>';
+  TU.forEach(function(u,ui){
+    var ds=u.temas.map(function(t){return t.date}),rg=rangeTxt(ds),nd=ds.filter(function(d){return !d}).length;
+    out+='<div class="unit"><div class="unit-h"><div class="grow"><div class="unit-t">'+esc(unitTitle(u))+'</div><div class="muted">'+u.temas.length+' '+plural(u.temas.length,'tema','temas')+' · '+(rg?'del '+esc(rg):'sin fechas')+(rg&&nd?' · '+nd+' sin fecha':'')+'</div></div><button class="btn ghost small" data-act="sc-tudates" data-id="'+ui+'">📅 Fechas</button></div>';
+    u.temas.forEach(function(e){var na=schEvents(g.id).filter(function(x){return x.topicId===e.id}).length;
+      out+='<div class="item" data-act="sc-tema" data-id="'+esc(g.id+'|'+e.id)+'" style="cursor:pointer"><span class="evi">📚</span><div class="grow"><div class="title">'+esc(e.title)+'</div><div class="muted">'+(e.date?esc(fmtDate(e.date)):'<span class="nodate">Sin fecha</span>')+' · '+(na?na+' '+plural(na,'actividad','actividades'):'sin actividades')+'</div></div>'+ic('chevr')+'</div>'});
+    out+='</div>';
+  });
+  return out+'</div>';
+}
+/* Mismo tema en otra sección (mismo trimestre, unidad y nombre) */
+function sibTema(x,sjName,e){var sid=sibSubj(x,sjName);return schEvents(x.id).filter(function(q){return q.type==='tema'&&q.subjectId===sid&&(+q.tri||1)===(+e.tri||1)&&(+q.unitNo||1)===(+e.unitNo||1)&&String(q.title).toLowerCase()===String(e.title).toLowerCase()})[0]}
+function formUnitDates(g,u){
+  var sj=(g.subjects||[]).filter(function(z){return z.id===u.temas[0].subjectId})[0],sibs=sj?sibGrades(g,sj.name):[];
+  var first=u.temas.map(function(t){return t.date}).filter(Boolean).sort()[0]||ymd(new Date());
+  openModal('<h3>📅 '+esc(unitTitle(u))+'</h3><p class="muted" style="margin:0">'+esc(gName(g))+'. Pon la fecha en que verás cada tema. La unidad dura del primer tema al último.</p>'+
+    '<div class="autofill"><div class="grid2" style="margin:0"><div><label for="ud1">Empieza el</label><input type="date" id="ud1" value="'+esc(first)+'"></div><div><label for="ud2">Temas por semana</label><select id="ud2"><option>1</option><option selected>2</option><option>3</option><option>4</option><option>5</option></select></div></div>'+
+    '<button type="button" class="btn ghost small" id="udfill" style="margin-top:8px">Repartir fechas automáticamente</button></div>'+
+    '<div id="udl">'+u.temas.map(function(t,i){return '<div class="udrow"><span class="grow">'+esc(t.title)+'</span><input type="date" data-i="'+i+'" value="'+esc(t.date||'')+'" aria-label="Fecha de '+esc(t.title)+'"></div>'}).join('')+'</div>'+
+    secBox(g,sibs)+
+    '<div class="row" style="margin-top:16px"><button class="btn ghost" data-act="close" style="margin-left:auto">Cancelar</button><button class="btn" id="udok">Guardar fechas</button></div>');
+  $('#udfill').onclick=function(){var st=$('#ud1').value;if(!st){toast('Elige la fecha de inicio.');return}var per=+$('#ud2').value||1;
+    Array.prototype.forEach.call(document.querySelectorAll('#udl input'),function(inp,i){inp.value=shift(st,Math.floor(i/per)*7+Math.floor((i%per)*5/per))})};
+  $('#udok').onclick=function(){
+    var vals=Array.prototype.map.call(document.querySelectorAll('#udl input'),function(inp){return inp.value||''});
+    var mine=u.temas.map(function(t,i){return {id:t.id,date:vals[i]}}).filter(function(x,i){return x.date!==(u.temas[i].date||'')});
+    var others=secPicked();
+    this.disabled=true;var b=this,done=[];
+    seqAll([g].concat(others),function(x){
+      var items=x.id===g.id?mine:u.temas.map(function(t,i){var q=sibTema(x,sj.name,t);return q&&(q.date||'')!==vals[i]?{id:q.id,date:vals[i]}:null}).filter(Boolean);
+      return items.length?schAct('tema.date',{gradeId:x.id,items:items}).then(function(){done.push(x)}):Promise.resolve()})
+      .then(function(){closeModal();var r=rangeTxt(vals);toast(r?'Fechas guardadas · la unidad va del '+r+' ✅':'Fechas guardadas ✅')},function(){b.disabled=false});
+  };
+}
+/* Docente: un tema con su fecha y sus actividades */
+function temaModal(gid,eid){
+  var g=schGrade(gid),e=schEvents(gid).filter(function(x){return x.id===eid})[0];if(!g||!e)return;
+  var N=triN(schProf()),sj=(g.subjects||[]).filter(function(x){return x.id===e.subjectId})[0],acts=schEvents(gid).filter(function(x){return x.topicId===eid}).sort(function(a,b){return a.date<b.date?-1:1});
+  var sibs=sj&&MODE!=='school'?sibGrades(g,sj.name).filter(function(x){return sibTema(x,sj.name,e)}):[];
+  openModal('<h3>📚 '+esc(e.title)+'</h3><p class="muted" style="margin:0">'+(sj?esc(sj.name)+' · ':'')+esc(gName(g))+' · '+esc(triLabel(+e.tri||1,N))+' · Unidad '+(+e.unitNo||1)+(e.unitName?': '+esc(e.unitName):'')+'</p>'+
+    '<label for="tmd">📅 Fecha en que lo verás</label><div class="row" style="gap:8px"><input type="date" id="tmd" value="'+esc(e.date||'')+'" style="flex:1"><button class="btn ghost small" id="tmdok">Guardar fecha</button></div>'+
+    (sibs.length?'<label class="secopt" style="margin-top:8px"><input type="checkbox" id="tmdsib" checked><span>Misma fecha en '+esc(secList(sibs))+'</span></label>':'')+
+    '<label>Actividades de este tema</label>'+(acts.length?acts.map(function(a){return evRow(a,g,false)}).join(''):'<p class="muted" style="margin:0">Todavía no hay actividades para este tema.</p>')+
+    '<div class="row wrap" style="gap:8px;margin-top:14px"><button class="btn small" data-act="sc-tema-act" data-id="'+esc(gid+'|'+eid)+'">＋ Actividad para este tema</button>'+
+    '<button class="btn ghost" data-act="close" style="margin-left:auto">Cerrar</button></div>');
+  $('#tmdok').onclick=function(){var d=$('#tmd').value||'',b=this;b.disabled=true;
+    var list=[g].concat($('#tmdsib')&&$('#tmdsib').checked?sibs:[]);
+    seqAll(list,function(x){var q=x.id===g.id?e:sibTema(x,sj.name,e);return q?schAct('tema.date',{gradeId:x.id,items:[{id:q.id,date:d}]}):Promise.resolve()})
+      .then(function(){b.disabled=false;toast(d?'Fecha guardada: '+fmtDate(d)+' ✅':'Fecha quitada')},function(){b.disabled=false})};
+}
+
+/* ---------- Alumno y familia: Trimestre › Unidad › Temas ---------- */
+function stuTriN(){return S.schoolTri&&+S.schoolTri.n===4?4:3}
+function stuTriCur(){var st=S.schoolTri||{};if(+st.cur)return +st.cur;var w=mondayOf(new Date()),c=0;(S.topics||[]).forEach(function(t){if(t.tri&&t.week&&t.week<=w&&t.tri>c)c=t.tri});return c||1}
+function schTopicsOf(tl){return tl.filter(function(t){return t.tri}).map(function(t){return Object.assign({},t,{unitNo:t.unit||1})})}
+/* Unidad en curso de cada materia: la que tiene un tema esta semana; si no, la próxima con fecha */
+function curUnitKeys(units){
+  var w=mondayOf(new Date()),bySj={};
+  units.forEach(function(u){u.temas.forEach(function(t){if(!t.week)return;var d=t.week===w?0:t.week>w?(parseD(t.week)-parseD(w))/864e5:Infinity,b=bySj[u.sj];if(!b||d<b.d)bySj[u.sj]={d:d,k:u.key}})});
+  var ks={};Object.keys(bySj).forEach(function(s){if(bySj[s].d!==Infinity)ks[bySj[s].k]=1});
+  if(!Object.keys(ks).length){var cur=stuTriCur();units.forEach(function(u){if(u.tri===cur&&!Object.keys(ks).some(function(k){return k.indexOf(u.sj+'|')===0}))ks[u.key]=1})}
+  return ks;
+}
+function triPill(){if(!(S.topics||[]).some(function(t){return t.tri}))return '';return '<div class="tripill">📅 '+(MODE==='parent'?esc(firstName())+' está en el':'Estás en el')+' <b>'+triLabel(stuTriCur(),stuTriN())+'</b></div>'}
+function unitBlock(u,par,isCur,showSj){
+  var rg=rangeTxt(u.temas.map(function(t){return t.date||''})),dm=u.temas.filter(function(t){return t.conf===3}).length,s=showSj?subj(u.sj):null;
+  return '<div class="unit'+(isCur?' cur':'')+'"><div class="unit-h"><div class="grow"><div class="unit-t">'+(s?'<span class="sdot" style="background:'+esc(s.color)+'"></span>'+esc(s.name)+' · ':'')+esc(unitTitle(u))+'</div>'+
+    '<div class="muted">'+(rg?'Del '+esc(rg):'Fechas por definir')+' · '+dm+'/'+u.temas.length+' 😀</div></div>'+(isCur?'<span class="badge good">En curso</span>':'')+'</div>'+u.temas.map(function(t){return topicRow(t,par)}).join('')+'</div>';
+}
+function topicListHtml(tl,par){
+  var sch=schTopicsOf(tl),own=tl.filter(function(t){return !t.tri}),out='';
+  if(sch.length){
+    var N=stuTriN(),cur=stuTriCur(),units=unitsOf(sch),ck=curUnitKeys(units),multi={};units.forEach(function(u){multi[u.sj]=1});var showSj=Object.keys(multi).length>1;
+    for(var i=1;i<=N;i++){var us=units.filter(function(u){return u.tri===i});if(!us.length)continue;
+      var tot=0,dm=0;us.forEach(function(u){tot+=u.temas.length;dm+=u.temas.filter(function(t){return t.conf===3}).length});
+      out+='<details class="tri"'+(i===cur?' open':'')+'><summary><b>'+triLabel(i,N)+'</b>'+(i===cur?' <span class="badge good">En curso</span>':i<cur?' <span class="badge">Terminado</span>':'')+'<span class="muted"> · '+us.length+' '+plural(us.length,'unidad','unidades')+' · '+dm+'/'+tot+' 😀</span></summary>'+
+        us.map(function(u){return unitBlock(u,par,!!ck[u.key],showSj)}).join('')+'</details>'}
+  }
+  if(own.length){var lw='';own=own.slice().sort(function(a,b){return a.week<b.week?-1:a.week>b.week?1:0});if(sch.length)out+='<div class="group">Temas que agregaste</div>';
+    own.forEach(function(t){if(t.week!==lw){lw=t.week;out+='<div class="group">Semana '+weekLabel(t.week)+'</div>'}out+=topicRow(t,par)})}
+  return out;
+}
 /* ---------- Leer el temario desde un archivo (Word, Excel, PDF, CSV o texto) ---------- */
 var LIBS={jszip:['https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js','JSZip'],pdf:['https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js','pdfjsLib']};
 var PDF_WORKER='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
@@ -5347,12 +5602,27 @@ function cellDate(c){
 }
 /* Una fila de tabla → «fecha - tema» (o solo el tema) */
 function rowLine(cells){
-  var dt='',tx='';
+  var dt='',tx='',pre=[];
   cells.forEach(function(c){c=String(c==null?'':c).replace(/\s+/g,' ').trim();if(!c)return;var d=cellDate(c);if(d&&!dt){dt=d;return}
-    if(/^(semana\s*)?\d+([.,]\d+)?$/i.test(c))return;if(c.length>tx.length)tx=c});
-  if(!tx||/^(n\.?º|no\.?|#|tema|temas|contenido|contenidos|fecha|semana|unidad|temario)s?$/i.test(tx))return '';
-  return (dt?dmy(dt)+' - ':'')+tx;
+    if(/^(semana\s*)?\d+([.,]\d+)?$/i.test(c))return;
+    if(triOf(c)||unitOf(c)){pre.push(c);return}
+    if(c.length>tx.length)tx=c});
+  if(tx&&/^(n\.?º|no\.?|#|tema|temas|contenido|contenidos|fecha|semana|unidad|unidades|trimestre|periodo|temario)s?$/i.test(tx))tx='';
+  if(!tx&&!pre.length)return '';
+  return pre.concat(tx?[(dt?dmy(dt)+' - ':'')+tx]:[]).join('\n');
 }
+/* «Trimestre 2», «II trimestre», «Segundo trimestre», «Periodo 3», «T2» → número */
+var ROM={i:1,ii:2,iii:3,iv:4},ORD={primer:1,primero:1,segundo:2,tercer:3,tercero:3,cuarto:4};
+function triOf(l){var m;l=String(l).trim().toLowerCase();
+  if((m=/^(trimestre|per[ií]odo)\s*(\d|iv|i{1,3})\b/.exec(l)))return +m[2]||ROM[m[2]];
+  if((m=/^(\d|iv|i{1,3})\s*(er|do|ro|to|°|º)?\.?\s*(trimestre|per[ií]odo)\b/.exec(l)))return +m[1]||ROM[m[1]];
+  if((m=/^(primer|primero|segundo|tercer|tercero|cuarto)\s+(trimestre|per[ií]odo)\b/.exec(l)))return ORD[m[1]];
+  if((m=/^t\s*([1-4])$/.exec(l)))return +m[1];
+  return 0}
+/* «Unidad 3: Ecuaciones», «UNIDAD III - Ecuaciones», «U3. Ecuaciones» → {n, name} */
+function unitOf(l){var m=/^\s*(?:unidad|u)\s*(\d{1,2}|[ivx]{1,5})\b\s*[:.\-–—)]?\s*(.*)$/i.exec(String(l));if(!m)return null;
+  var r=m[1].toLowerCase(),n=+r;if(!n){var v={i:1,v:5,x:10},t=0;for(var i=0;i<r.length;i++){var a=v[r[i]],b=v[r[i+1]]||0;t+=a<b?-a:a}n=t}
+  return n>0&&n<=40?{n:n,name:m[2].replace(/\s+/g,' ').trim().slice(0,100)}:null}
 function splitRows(text){
   var ls=String(text).replace(/\r/g,'').split('\n'),sep=/\t/.test(text)?'\t':/;/.test(text)?';':',';
   return ls.map(function(l){
@@ -5390,50 +5660,7 @@ function readTemarioFile(f){
     if(ext==='pdf')return pdfLines(buf);
     var txt=new TextDecoder('utf-8').decode(buf);if(/\uFFFD/.test(txt))txt=new TextDecoder('windows-1252').decode(buf);
     return ext==='csv'||ext==='tsv'||/[\t;]/.test(txt)?splitRows(txt):txt.split(/\r?\n/);
-  }).then(function(ls){return ls.map(function(l){return String(l||'').replace(/\s+/g,' ').trim()}).filter(function(l){return l.length>1&&!/^(tema|temas|temario|contenidos?|fecha|semana)s?:?$/i.test(l)&&!/^(temario|plan de estudios?|programa)\b/i.test(l)})});
-}
-/* Texto del cuadro → temas con fecha. Una línea puede empezar con fecha: «02/11/2026 - Fracciones» */
-function temarioPlan(text,per,start){
-  var items=[],dated=false,last='',k=0;
-  String(text).split(/\n+/).forEach(function(l){
-    var d='',m=/^\s*(\d{1,2}[\/.\-]\d{1,2}[\/.\-]\d{2,4}|\d{4}-\d{1,2}-\d{1,2})\s*[-–—:·|,;]?\s*(.*)$/.exec(l);
-    if(m){d=cellDate(m[1]);if(d)l=m[2]}
-    l=l.replace(/^\s*([-•*·▪●○◦]|\d+(\.\d+)*[.)\-:]?\s+|[a-zA-Z][.)])\s*/,'').replace(/\s+/g,' ').trim();if(l.length<2)return;
-    if(d){dated=true;last=d}
-    items.push({title:l.slice(0,120),date:d||last,_seq:d||last?-1:k++});
-  });
-  items=items.slice(0,200);
-  items.forEach(function(it){if(!it.date)it.date=shift(start,Math.floor(it._seq/per)*7);delete it._seq});
-  return {items:items,dated:dated};
-}
-function formTemarioBulk(secs,sjn){
-  if(!secs||!secs.length)return;var g=secs[0],w0=mondayOf(new Date());
-  openModal('<h3>Cargar temario · '+esc(sjn)+' · '+esc(g.name)+'</h3><p class="muted" style="margin:0">Sube el archivo del plan de estudio o pega un tema por línea. Revisa la lista antes de guardar.</p>'+
-    '<div class="tfile"><label class="btn ghost small" for="tbf" style="margin:0">📎 Subir archivo</label><input type="file" id="tbf" accept=".docx,.xlsx,.xlsm,.pdf,.txt,.csv,.tsv,text/plain,text/csv,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden><span class="muted" id="tbfs">Word (.docx), Excel (.xlsx), PDF, CSV o texto</span></div>'+
-    '<label for="tb1">Temas</label><textarea id="tb1" rows="9" placeholder="Ej.\nUnidad 3: Ecuaciones\nEcuaciones de primer grado\nDespeje de variables\n\nSi el archivo trae fechas, se respetan:\n02/11/2026 - Problemas con ecuaciones"></textarea>'+
-    '<div class="grid2" style="margin:0" id="tbseq"><div><label for="tb2">Empieza la semana del</label><input type="date" id="tb2" value="'+w0+'"></div><div><label for="tb3">Temas por semana</label><select id="tb3"><option>1</option><option selected>2</option><option>3</option><option>4</option><option>5</option></select></div></div>'+
-    '<div class="muted" id="tbp" style="margin-top:8px"></div>'+secBox(g,secs.slice(1))+
-    '<div class="row" style="margin-top:16px"><button class="btn ghost" data-act="close">Cancelar</button><button class="btn" id="tbok" style="margin-left:auto">Guardar temas</button></div>');
-  var plan=function(){var per=+$('#tb3').value||1,st=$('#tb2').value?mondayOf(parseD($('#tb2').value)):w0;return temarioPlan($('#tb1').value,per,st)};
-  var prev=function(){var p=plan(),l=p.items;
-    $('#tbp').textContent=!l.length?'':p.dated?l.length+' '+plural(l.length,'tema','temas')+' con las fechas del archivo (del '+fmtDate(l.map(function(x){return x.date}).sort()[0])+' al '+fmtDate(l.map(function(x){return x.date}).sort().pop())+').':
-      l.length+' '+plural(l.length,'tema','temas')+' en '+Math.ceil(l.length/(+$('#tb3').value||1))+' semanas (hasta la semana del '+weekLabel(l[l.length-1].date)+').'};
-  ['#tb1','#tb2','#tb3'].forEach(function(q){$(q).addEventListener('input',prev);$(q).addEventListener('change',prev)});
-  $('#tbf').onchange=function(){var f=this.files&&this.files[0];if(!f)return;var inp=this;$('#tbfs').textContent='Leyendo '+f.name+'…';
-    readTemarioFile(f).then(function(ls){inp.value='';
-      if(!ls.length){$('#tbfs').textContent='No encontré temas en '+f.name+'.';return}
-      var ta=$('#tb1');ta.value=(ta.value.trim()?ta.value.trim()+'\n':'')+ls.join('\n');prev();
-      $('#tbfs').textContent='✅ '+f.name+': '+ls.length+' '+plural(ls.length,'línea','líneas')+'. Borra las que no sean temas.';ta.scrollTop=0},
-    function(err){inp.value='';var m=err&&err.message;
-      $('#tbfs').textContent=m==='formato'?'Ese formato no se puede leer. Guárdalo como Word (.docx), Excel (.xlsx), PDF o texto.':m==='grande'?'El archivo es muy grande (máximo 8 MB).':m==='lib'?'No se pudo abrir el lector de archivos. Revisa tu internet e intenta de nuevo.':'No se pudo leer el archivo. Prueba copiando y pegando los temas.'})};
-  $('#tbok').onclick=function(){
-    var p=plan().items;if(!p.length){toast('Agrega al menos un tema.');$('#tb1').focus();return}
-    this.disabled=true;var b=this;
-    var done=[];
-    seqAll([g].concat(secPicked()),function(x){return schAct('ev.bulk',{gradeId:x.id,subjectId:sibSubj(x,sjn),items:p}).then(function(){done.push(x)})}).then(function(){closeModal();
-      toast(p.length+' '+plural(p.length,'tema guardado','temas guardados')+' en '+(done.length>1?g.name+' '+secList(done):gName(g))+' 📚')},
-      function(){b.disabled=false;if(done.length){closeModal();toast('Se guardó en '+secList(done)+', pero no en las demás secciones. Intenta de nuevo en esas.')}});
-  };
+  }).then(function(ls){var fl=[];ls.forEach(function(l){String(l||'').split('\n').forEach(function(x){fl.push(x)})});return fl.map(function(l){return String(l||'').replace(/\s+/g,' ').trim()}).filter(function(l){return l.length>1&&!/^(tema|temas|temario|contenidos?|fecha|semana)s?:?$/i.test(l)&&!/^(temario|plan de estudios?|programa)\b/i.test(l)})});
 }
 
 /* ---------- Familia y estudiante: boletín del colegio ---------- */
@@ -5723,9 +5950,16 @@ function schoolAction(a,id,el){
     case 'sc-tsel':SC.tsel=id;render();break;
     case 'sc-tlv':SC.tlv=id;softRender();break;
     case 'sc-tsj':SC.tsj=id;softRender();break;
-    case 'sc-atem1':formLvTema(null);break;
+    case 'sc-atem1':formLvTema(null,LVU[+id]);break;
+    case 'sc-atri':SC.atri=+id;softRender();break;
+    case 'sc-atricur':schAct('sch.tri',{cur:SC.atri}).then(function(){toast('Listo: '+triLabel(SC.atri,triN(schProf()))+' en curso ✅')});break;
+    case 'sc-ntri':schAct('sch.tri',{n:+id}).then(function(){toast(+id===4?'El año tiene 4 periodos':'El año tiene 3 trimestres')});break;
+    case 'sc-aunit-new':formLvUnit(null);break;
+    case 'sc-aunit':formLvUnit(LVU[+id]);break;
+    case 'sc-ttri':SC.ttri=+id;softRender();break;
+    case 'sc-tudates':var tdg=schGrade(String(SC.tsel||'').split('|')[0]);if(tdg&&TU[+id])formUnitDates(tdg,TU[+id]);break;
     case 'sc-atembulk':formTemarioBulk(lvSecs(SC.tlv,SC.tsj),SC.tsj);break;
-    case 'sc-atema':formLvTema(LVT[+id]);break;
+    case 'sc-atema':var aq=String(id).split('|'),au=LVU[+aq[0]];if(au&&au.temas[+aq[1]])formLvTema(au.temas[+aq[1]]);break;
     case 'sc-atemclr':lvClear();break;
     case 'sc-tema':var tq=String(id).split('|');temaModal(tq[0],tq[1]);break;
     case 'sc-tema-act':var ta=String(id).split('|'),tev=schEvents(ta[0]).filter(function(x){return x.id===ta[1]})[0];closeModal();if(tev){formEvent(ta[0],'',{type:'tarea',subjectId:tev.subjectId,topicId:tev.id});var ti=$('#ev1');if(ti)ti.value=''}break;
