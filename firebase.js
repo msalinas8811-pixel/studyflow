@@ -47,23 +47,23 @@ if(!cfg.apiKey||/PEGA|TU_/.test(cfg.apiKey)){
   const CH='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   const newCode=()=>Array.from(crypto.getRandomValues(new Uint8Array(6))).map(b=>CH[b%CH.length]).join('');
 
-  async function createFamily(name,person){
+  async function createFamily(name,person,rel){
     const uid=auth.currentUser.uid,fid=doc(collection(fs,'families')).id;
     let code=newCode();
     for(let i=0;i<5;i++){const c=await getDoc(doc(fs,'codes',code));if(!c.exists())break;code=newCode()}
     await setDoc(doc(fs,'families',fid),{name,owner:uid,code,createdAt:Date.now()});
-    await setDoc(doc(fs,'families',fid,'members',uid),{role:'parent',name:person,joinedAt:Date.now()});
+    await setDoc(doc(fs,'families',fid,'members',uid),{role:'parent',name:person,rel:rel||'',joinedAt:Date.now()});
     await setDoc(doc(fs,'codes',code),{familyId:fid,owner:uid});
-    const prof={familyId:fid,role:'parent',name:person};
+    const prof={familyId:fid,role:'parent',name:person,rel:rel||''};
     await setDoc(doc(fs,'users',uid),prof);
     return prof;
   }
-  async function joinFamily(code,role,person,grade){
+  async function joinFamily(code,role,person,grade,rel){
     const uid=auth.currentUser.uid,c=await getDoc(doc(fs,'codes',code));
     if(!c.exists())throw{code:'code'};
     const fid=c.data().familyId;
-    await setDoc(doc(fs,'families',fid,'members',uid),{role,name:person,code,joinedAt:Date.now()});
-    const prof={familyId:fid,role,name:person,grade:grade||''};
+    await setDoc(doc(fs,'families',fid,'members',uid),{role,name:person,code,rel:role==='parent'?(rel||''):'',joinedAt:Date.now()});
+    const prof={familyId:fid,role,name:person,grade:grade||''};if(role==='parent')prof.rel=rel||'';
     await setDoc(doc(fs,'users',uid),prof);
     return prof;
   }
@@ -134,6 +134,7 @@ if(!cfg.apiKey||/PEGA|TU_/.test(cfg.apiKey)){
       if(auth.currentUser)await auth.currentUser.getIdToken(true);
       try{return (await callAdmin(Object.assign({action},data||{}))).data}catch(e){throw{code:String(e&&e.message||'error')}}
     },
+    temLink:async(action,d)=>{try{return (await httpsCallable(fn,'temLink',{timeout:30000})(Object.assign({action},d||{}))).data}catch(e){throw{code:String(e&&e.message||'error')}}},
     teacherReq:async d=>(await httpsCallable(fn,'teacherReq',{timeout:30000})(d)).data,
     teacherGet:async token=>(await httpsCallable(fn,'teacherGet',{timeout:20000})({token})).data,
     teacherAnswer:async (token,result,comment)=>(await httpsCallable(fn,'teacherAnswer',{timeout:20000})({token,result,comment})).data,

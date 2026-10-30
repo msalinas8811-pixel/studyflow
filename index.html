@@ -734,6 +734,8 @@ header small .hs{display:block;font-size:13px;opacity:.92;margin:2px 0 1px;line-
 .tvchips::-webkit-scrollbar{display:none}
 .tvchips .chipb{white-space:nowrap;flex:none}
 .tvback{margin-bottom:10px}
+.tlask{margin-top:14px;padding:12px;border-radius:14px;background:var(--fam-soft)}
+.tlrow{margin-top:10px;padding:12px;border-radius:14px;background:var(--bg)}
 </style>
 </head>
 <body>
@@ -976,6 +978,7 @@ function initCloud(){
   function go(){
     var api=F();
     if(!api||!api.configured){CLOUD='off';AUTH.st='noconfig';softRender();return}
+    if(tlToken()){tlTeacherBoot(api);return}
     if(teacherToken()){teacherBoot(api);return}
     SAMPLER=langWrap(api.sampler);IMG={maxCount:1,mediaTypes:['image/jpeg','image/png','image/webp']};
     api.onAuth(function(u){
@@ -1151,6 +1154,7 @@ function staffPicker(){
   openModal(out+'</div><div class="row" style="margin-top:12px"><button class="btn ghost" data-act="close" style="margin-left:auto">Cerrar</button></div>');
 }
 function schoolCloudAction(a,id,el){
+  if(a.indexOf('sc-fm-')===0){famAction(a,id);return}
   if(a==='sc-panel'){
     closeModal();SAMPLE=false;demo=null;
     if(id==='family'){lsSet('sf.panel','family');enterFamily(AUTH.prof)}
@@ -1182,6 +1186,50 @@ function preRenderHook(){
   if(!all.length)return;
   all.filter(function(o){return o.student===curSid}).sort(function(a,b){return (a.at||0)-(b.at||0)}).forEach(function(o){applyOp(S,o)});
 }
+/* ---------- Familia con varios encargados (mamá, papá, abuelos…) ---------- */
+var FAMM={fid:'',list:null,t:0,busy:false};
+function famMembersLoad(force){
+  var p=AUTH.prof;if(SAMPLE||!p||!p.familyId||!F()||!F().root||FAMM.busy)return;
+  if(!force&&FAMM.fid===p.familyId&&FAMM.list&&Date.now()-FAMM.t<60000)return;
+  FAMM.busy=true;FAMM.fid=p.familyId;
+  F().root.collection('families/'+p.familyId+'/members').get().then(function(q){FAMM.busy=false;FAMM.t=Date.now();
+    FAMM.list=q.docs.map(function(d){return Object.assign({id:d.id},d.data())});softRender();if($('#famm'))famMembersModal()},function(){FAMM.busy=false});
+  if(!AUTH.fam&&F().family)F().family(p.familyId).then(function(f){AUTH.fam=f;if($('#famm'))famMembersModal()},function(){});
+}
+function famParents(){return (FAMM.list||[]).filter(function(m){return m.role==='parent'})}
+function famInviteText(){var c=AUTH.fam&&AUTH.fam.code||'';return 'Te invito a la familia en StudyFlow para acompañar el estudio de '+(typeof firstName==='function'?firstName():'nuestros hijos')+'. Abre '+location.origin+location.pathname+' , crea tu cuenta y elige «Me invitaron a una familia» con el código '+c+'.'}
+function famMembersModal(){
+  famMembersLoad(false);
+  var me=AUTH.user&&AUTH.user.uid,owner=AUTH.fam&&AUTH.fam.owner,code=AUTH.fam&&AUTH.fam.code||'',ps=famParents(),ss=(FAMM.list||[]).filter(function(m){return m.role==='student'});
+  openModal('<div id="famm"></div><h3>👨‍👩‍👧 Encargados de la familia</h3><p class="muted" style="margin:0">Todos ven lo mismo: avance, actividades, temario, notas y avisos del colegio. Cada actividad, recordatorio o revisión queda con el nombre de quien lo hizo.</p>'+
+    (FAMM.list?'<div class="group">Encargados · '+ps.length+'</div>'+ps.map(function(m){var mine=m.id===me;
+      return '<div class="item"><span class="ava lg" style="font-size:22px">'+(m.rel==='Papá'||m.rel==='Abuelo'||m.rel==='Tío'||m.rel==='Hermano mayor'||m.rel==='Encargado'?'👨':'👩')+'</span><div class="grow"><div class="title">'+esc(m.name||'Sin nombre')+(mine?' (tú)':'')+'</div><div class="muted">'+esc(m.rel||'Encargado/a')+(m.id===owner?' · creó la familia':'')+'</div></div>'+
+        (mine?'<button class="btn ghost small" data-act="sc-fm-rel">Cambiar</button>':(me===owner?'<button class="btn danger small" data-act="sc-fm-del" data-id="'+esc(m.id)+'">Quitar</button>':''))+'</div>'}).join('')+
+      (ss.length?'<div class="group">Estudiantes</div>'+ss.map(function(m){return '<div class="item"><span class="ava lg" style="font-size:22px">🧑‍🎓</span><div class="grow"><div class="title">'+esc(m.name||'')+'</div></div></div>'}).join(''):'')
+     :'<div class="empty">Cargando…</div>')+
+    '<div class="tv-box"><div class="reto-h">Invitar a otro encargado</div><div class="muted" style="margin-bottom:8px">Que abra StudyFlow, cree su cuenta y elija <b>«Me invitaron a una familia»</b> con este código:</div>'+
+      (code?'<div class="codebox">'+esc(code)+'</div><div class="row wrap" style="gap:8px;margin-top:10px"><button class="btn ghost small" data-act="copy-code">Copiar código</button><a class="btn famb small" href="https://wa.me/?text='+encodeURIComponent(famInviteText())+'" target="_blank" rel="noopener">💬 Enviar por WhatsApp</a></div>':'<div class="muted">Cargando código…</div>')+'</div>'+
+    '<div class="row" style="margin-top:14px"><button class="btn ghost" data-act="close" style="margin-left:auto">Cerrar</button></div>');
+}
+function famInviteCloud(){
+  if(SAMPLE||MODE!=='parent'||!AUTH.prof||!AUTH.prof.familyId)return '';
+  famMembersLoad(false);if(!FAMM.list||famParents().length>1)return '';
+  return '<div class="card fam"><div class="row" style="gap:12px;align-items:flex-start"><span class="schi">👨‍👩‍👧</span><div class="grow"><b>¿Alguien más apoya a '+esc(firstName())+'?</b><div class="muted">Invita a mamá, papá, abuelos u otro encargado. Verán lo mismo que tú y podrán asignar actividades y revisar.</div>'+
+    '<button class="btn famb small" data-act="sc-fm-open" style="margin-top:10px">Invitar a otro encargado</button></div></div></div>';
+}
+function famAction(a,id){
+  var p=AUTH.prof;if(!p||!p.familyId)return;
+  if(a==='sc-fm-open'){famMembersLoad(true);famMembersModal();return}
+  if(a==='sc-fm-rel'){var cur=p.rel||'';
+    openModal('<h3>¿Qué eres de '+esc(firstName())+'?</h3><label for="fmr">Soy</label><select id="fmr">'+relOpts(cur)+'</select>'+
+      '<div class="row" style="margin-top:16px"><button class="btn ghost" data-act="sc-fm-open">Atrás</button><button class="btn" id="fmrok" style="margin-left:auto">Guardar</button></div>');
+    $('#fmrok').onclick=function(){var r=relVal('#fmr'),uid=AUTH.user.uid,b=this;b.disabled=true;
+      Promise.all([F().root.doc('users/'+uid).update({rel:r}),F().root.doc('families/'+p.familyId+'/members/'+uid).update({rel:r})]).then(function(){AUTH.prof.rel=r;toast('Listo ✅');famMembersLoad(true);famMembersModal();render()},function(){b.disabled=false;toast('No se pudo guardar. Intenta de nuevo.')})};
+    return;}
+  if(a==='sc-fm-del'){var m=(FAMM.list||[]).filter(function(x){return x.id===id})[0];if(!m)return;
+    ask('«'+(m.name||'Este encargado')+'» ya no podrá ver ni cambiar nada de la familia. Puede volver a unirse con el código.','Quitar',function(){
+      F().root.doc('families/'+p.familyId+'/members/'+id).delete().then(function(){toast('Encargado quitado');famMembersLoad(true);setTimeout(famMembersModal,300)},function(){toast('No se pudo quitar.')})});}
+}
 
 function authErr(e){
   var c=(e&&e.code)||'';
@@ -1201,11 +1249,13 @@ function vAuth(){
     return brand+schoolOnboardHtml()+'<div class="card"><h2>¿Quién va a usar esta cuenta?</h2><p class="muted" style="margin-top:-4px">Cuenta: '+esc(AUTH.user&&AUTH.user.email||'')+'</p>'+
       '<label for="obn">Tu nombre</label><input id="obn" value="'+esc(nm)+'" maxlength="40" placeholder="Ej. Ana">'+
       '<div class="note" style="margin-top:14px;flex-direction:column;gap:8px"><b>'+ic('users')+' Soy madre o padre</b><span class="muted">Crea la familia y comparte el código con tus hijos.</span>'+
-      '<label for="obf" style="margin-top:0">Nombre de la familia</label><input id="obf" placeholder="Ej. Familia Salinas" maxlength="60"><button class="btn famb" data-act="ob-parent"'+(AUTH.busy?' disabled':'')+'>Crear mi familia</button></div>'+
+      '<label for="obf" style="margin-top:0">Nombre de la familia</label><input id="obf" placeholder="Ej. Familia Salinas" maxlength="60"><label for="obr1" style="margin-top:0">Soy</label><select id="obr1">'+relOpts('')+'</select><button class="btn famb" data-act="ob-parent"'+(AUTH.busy?' disabled':'')+'>Crear mi familia</button></div>'+
       '<div class="note" style="flex-direction:column;gap:8px"><b>'+ic('student')+' Soy estudiante</b><span class="muted">Escribe el código que te dio tu mamá o papá.</span>'+
       '<div class="grid2" style="margin:0"><div><label for="obc" style="margin-top:0">Código de familia</label><input id="obc" maxlength="6" autocapitalize="characters" placeholder="Ej. K7P2QX" style="text-transform:uppercase;letter-spacing:.12em"></div><div><label for="obg" style="margin-top:0">Grado (opcional)</label><input id="obg" maxlength="30" placeholder="Ej. 7.º grado"></div></div>'+
       '<button class="btn" data-act="ob-join"'+(AUTH.busy?' disabled':'')+'>Unirme a mi familia</button>'+
-      '<button class="btn ghost small" data-act="ob-join-parent">Soy otro padre o madre: unirme con el código</button></div>'+err+
+      '</div><div class="note" style="flex-direction:column;gap:8px"><b>'+ic('users')+' Me invitaron a una familia</b><span class="muted">Para mamá, papá, abuelos u otro encargado cuando la familia ya existe. Pide el código a quien la creó.</span>'+
+      '<div class="grid2" style="margin:0"><div><label for="obc2" style="margin-top:0">Código de familia</label><input id="obc2" maxlength="6" autocapitalize="characters" placeholder="Ej. K7P2QX" style="text-transform:uppercase;letter-spacing:.12em"></div><div><label for="obr2" style="margin-top:0">Soy</label><select id="obr2">'+relOpts('')+'</select></div></div>'+
+      '<button class="btn famb" data-act="ob-join-parent"'+(AUTH.busy?' disabled':'')+'>Unirme como encargado</button></div>'+err+
       '<button class="btn ghost small" data-act="logout" style="margin-top:12px">Cerrar sesión</button></div>';
   }
   var up=AUTH.tab==='up';
@@ -1236,9 +1286,9 @@ function authAction(a){
   else if(a==='ob-parent'||a==='ob-join'||a==='ob-join-parent'){
     var n2=$('#obn').value.trim();if(!n2){AUTH.err='Escribe tu nombre.';softRender();return}
     var pr;
-    if(a==='ob-parent'){var fam=$('#obf').value.trim()||('Familia de '+n2);pr=api.createFamily(fam,n2)}
-    else{var code=($('#obc').value||'').trim().toUpperCase();if(code.length<6){AUTH.err='Escribe el código de 6 letras de tu familia.';softRender();return}
-      pr=api.joinFamily(code,a==='ob-join'?'student':'parent',n2,a==='ob-join'?$('#obg').value.trim():'')}
+    if(a==='ob-parent'){var fam=$('#obf').value.trim()||('Familia de '+n2);pr=api.createFamily(fam,n2,relVal('#obr1'))}
+    else{var code=(($(a==='ob-join-parent'?'#obc2':'#obc')||{}).value||'').trim().toUpperCase();if(code.length<6){AUTH.err='Escribe el código de 6 letras de tu familia.';softRender();return}
+      pr=api.joinFamily(code,a==='ob-join'?'student':'parent',n2,a==='ob-join'?$('#obg').value.trim():'',a==='ob-join-parent'?relVal('#obr2'):'')}
     authRun(pr.then(function(p){AUTH.prof=Object.assign({},AUTH.prof||{},p);enterFamily(AUTH.prof);if(a==='ob-parent')setTimeout(showFamilyCode,300)}));
   }
 }
@@ -3323,7 +3373,7 @@ function parentAvatar(){
   var a=(typeof AUTH!=='undefined'&&AUTH.prof&&AUTH.prof.avatar)||lsGet('sf.pav');
   return validAv(a)?a:'👩🏽';
 }
-function parentName(){return (typeof AUTH!=='undefined'&&AUTH.prof&&AUTH.prof.name)||'Familia'}
+function parentName(){var p=typeof AUTH!=='undefined'&&AUTH.prof;return p&&p.name?p.name+(p.rel?' ('+String(p.rel).toLowerCase()+')':''):'Familia'}
 function saveParentAvatar(a){
   if(!validAv(a))return;
   lsSet('sf.pav',a);
@@ -3373,7 +3423,7 @@ function tutorTopics(){
 function pHome(){
   if(!curSid)return noStudent();
   var out=stChips()+proRequestCard()+studyGroupsCard()+whoCard()+reviewHomeCard()+dueSoonCard()+validationCard();
-  var _sc=stChips();if(out.indexOf(_sc)===0)out=_sc+parentSchoolCard()+(S.subjects.length?subjTilesCard():'')+out.slice(_sc.length);
+  var _sc=stChips();if(out.indexOf(_sc)===0)out=_sc+parentSchoolCard()+famInviteCard()+(S.subjects.length?subjTilesCard():'')+out.slice(_sc.length);
   if(!S.subjects.length)return out+'<div class="card"><div class="empty">Aún no ha registrado materias. Cuando lo haga, aquí verás su progreso.</div></div>';
   return out+(isPro()?'':'<div class="card" style="background:var(--primary-soft);box-shadow:none"><div class="row between wrap"><div><b>Plan Gratis</b><div class="muted">Con Pro: tutor de IA sin esperas, mini exámenes ilimitados, fotos del temario y guías para padres.</div></div><button class="btn small" data-act="plans">Ver planes</button></div></div>')+topicsParentCard()+progressCore()+badgesCard()+tutorTopics()+
     '<div class="card"><h2>'+ic('share')+'Compartir resumen</h2><p class="muted">Copia el resumen para enviarlo al docente u otro familiar.</p><button class="btn block" data-act="share">Copiar resumen</button></div>';
@@ -4051,7 +4101,7 @@ function formSettings(){
   out+='<h4>Plan</h4><div class="row between wrap"><span>'+(isPro()?'🚀 <b>Pro</b>'+(proUntil()?' · hasta el '+esc(fmtDay(proUntil())):''):'Gratis')+'</span><button class="btn ghost small" data-act="plans">Ver planes</button></div>'+
     (!SAMPLE&&F()&&F().isAdminEmail&&F().isAdminEmail()?'<h4>Administrador</h4><button class="btn ghost small" data-act="adm-open">Abrir panel de administrador</button>':'');
   out+='<h4>Cuenta</h4><p class="muted" style="margin:0 0 8px">'+(SAMPLE?'Estás en la demostración.':esc((F()&&F().email&&F().email())||''))+'</p>'+
-    (SAMPLE?'':(par?'<button class="btn ghost small" data-act="fam-code" style="margin-right:8px">Ver código de familia</button>':'')+((staffEntries().length||isPlatAdmin())?'<button class="btn ghost small" data-act="sc-switch" style="margin-right:8px">Cambiar de panel</button>':'')+'<button class="btn ghost small" data-act="logout">Cerrar sesión</button>')+
+    (SAMPLE?'':(par?'<button class="btn ghost small" data-act="fam-code" style="margin-right:8px">Ver código de familia</button><button class="btn ghost small" data-act="sc-fm-open" style="margin-right:8px">👨‍👩‍👧 Encargados</button>':'')+((staffEntries().length||isPlatAdmin())?'<button class="btn ghost small" data-act="sc-switch" style="margin-right:8px">Cambiar de panel</button>':'')+'<button class="btn ghost small" data-act="logout">Cerrar sesión</button>')+
     '<div class="row" style="margin-top:18px"><button class="btn ghost" data-act="close" style="margin-left:auto">Cerrar</button></div>';
   openModal(out);
   avatarBind();
@@ -4416,7 +4466,7 @@ function demoReduce(a,p){
     case 'member.remove':s.members=s.members.filter(function(m){return m.id!==p.uid});if(p.uid==='demo')delete demo.S.settings.school;return {};
     case 'ev.save':{
       need(p.title&&(p.date||p.type==='tema')&&(EVT[p.type]||(p.type==='otro'&&p.typeName))&&s.events[p.gradeId]);
-      if(MODE==='teacher'&&(!canEditGrade(p.gradeId)||p.type==='tema'||(p.id&&(s.events[p.gradeId].filter(function(x){return x.id===p.id})[0]||{}).type==='tema')))throw {code:'forbidden'};
+      if(MODE==='teacher'&&(!canEditGrade(p.gradeId)||((p.type==='tema'||(p.id&&(s.events[p.gradeId].filter(function(x){return x.id===p.id})[0]||{}).type==='tema'))&&s.profile.temarioBy!=='teacher')))throw {code:'forbidden'};
       var list=s.events[p.gradeId],e=p.id?list.filter(function(x){return x.id===p.id})[0]:null;
       if(!e){e={id:'e'+uid()};list.push(e)}
       var keepD=p.type==='tema'&&!p.date?(e.date||''):'';
@@ -4429,15 +4479,15 @@ function demoReduce(a,p){
       var lt=s.events[p.gradeId];need(lt);
       (p.items||[]).forEach(function(it){var q=lt.filter(function(x){return x.id===it.id})[0];need(q&&q.type==='tema');q.date=it.date||''});return {};
     }
-    case 'sch.tri':{if(MODE!=='school')throw {code:'forbidden'};if(p.cur!=null)s.profile.curTri=Math.min(4,Math.max(1,+p.cur||1));if(p.n!=null)s.profile.nTri=+p.n===4?4:3;return {}}
+    case 'sch.tri':{if(MODE!=='school')throw {code:'forbidden'};if(p.cur!=null)s.profile.curTri=Math.min(4,Math.max(1,+p.cur||1));if(p.n!=null)s.profile.nTri=+p.n===4?4:3;if(p.by!=null)s.profile.temarioBy=p.by==='teacher'?'teacher':'school';return {}}
     case 'sch.addType':{need(p.name);s.profile.types=(s.profile.types||[]).concat([{name:String(p.name).slice(0,30),emoji:p.emoji||'🗂️'}]).slice(0,30);return {}}
     case 'ev.bulk':{
-      if(MODE==='teacher')throw {code:'forbidden'};
+      if(MODE==='teacher'&&s.profile.temarioBy!=='teacher')throw {code:'forbidden'};
       var lb=s.events[p.gradeId];need(lb&&(p.items||[]).length);var mb=schMe();
       p.items.slice(0,200).forEach(function(it){lb.push({id:'e'+uid(),type:'tema',title:String(it.title).slice(0,120),subjectId:p.subjectId,date:it.date||'',tri:+it.tri||1,unitNo:+it.unitNo||1,unitName:String(it.unitName||'').slice(0,100),ord:+it.ord||0,time:'',note:'',by:mb?mb.id:'',byName:mb?mb.name:'',at:Date.now()})});
       return {};
     }
-    case 'ev.del':if(MODE==='teacher'&&((s.events[p.gradeId]||[]).filter(function(x){return x.id===p.id})[0]||{}).type==='tema')throw {code:'forbidden'};s.events[p.gradeId]=(s.events[p.gradeId]||[]).filter(function(x){return x.id!==p.id});return {};
+    case 'ev.del':if(MODE==='teacher'&&s.profile.temarioBy!=='teacher'&&((s.events[p.gradeId]||[]).filter(function(x){return x.id===p.id})[0]||{}).type==='tema')throw {code:'forbidden'};s.events[p.gradeId]=(s.events[p.gradeId]||[]).filter(function(x){return x.id!==p.id});return {};
     case 'nurse.send':{
       var m=s.members.filter(function(x){return x.id===p.uid})[0];need(m&&p.text);var me2=schMe(),k=NURSE_KINDS.filter(function(x){return x[0]===p.kind})[0]||NURSE_KINDS[5];
       var rec={id:'nn'+uid(),student:m.id,studentName:m.name,gradeId:m.gradeId,kind:k[0],text:p.text,at:now,by:me2?me2.id:'',byName:me2?me2.name:''};s.nurse.unshift(rec);
@@ -4734,7 +4784,7 @@ function vSubj(){
   if(tab==='cal'){var it=stuCalItems(s.id);out+='<div class="card">'+calHtml(it)+calDayList(it,'Nada de '+s.name+' este día.')+'</div>'}
   else if(tab==='tareas'){
     var pend=S.tasks.filter(function(t){return t.subject===s.id&&!t.done}).sort(function(a,b){return a.due<b.due?-1:1}),done=S.tasks.filter(function(t){return t.subject===s.id&&t.done}).sort(function(a,b){return a.due<b.due?1:-1});
-    out+=(par?'<button class="btn famb block" data-act="pt-new-subj" data-id="'+esc(s.id)+'" style="margin-bottom:12px">＋ Asignar actividad de '+esc(s.name)+'</button>':'')+
+    out+=(par?'<div class="row wrap" style="gap:8px;margin-bottom:12px"><button class="btn famb" data-act="pt-new-subj" data-id="'+esc(s.id)+'" style="flex:1">＋ Asignar actividad</button><button class="btn ghost" data-act="sc-tl-ask" data-id="'+esc(s.id)+'" style="flex:1">📨 Pedir a la docente</button></div>':'')+
       '<div class="card"><div class="group">Pendientes · '+pend.length+'</div>'+(pend.length?pend.map(taskRow).join(''):'<div class="empty">'+(par?'No tiene':'No tienes')+' pendientes de '+esc(s.name)+' 🎉</div>')+
       (done.length?'<div class="group">Hechas · '+done.length+'</div>'+done.slice(0,10).map(taskRow).join(''):'')+'</div>';
   }else if(tab==='temario'){
@@ -4742,7 +4792,7 @@ function vSubj(){
     out+='<div class="card">';
     if(!tl.length)out+='<div class="empty">Aún no hay temas de '+esc(s.name)+'.'+(s.schoolSubj?' Aparecerán cuando tu colegio cargue el temario.':'')+'</div>';
     out+=triPill()+topicListHtml(tl,par);
-    out+=(par?'':'<button class="btn ghost block" data-act="temario" style="margin-top:12px">+ Cargar temario</button>')+'</div>';
+    out+=(par?'<div class="tlask"><b>¿El colegio no carga el temario aquí?</b><div class="muted">Pídeselo a la docente con un link: lo abre sin cuenta, pega el temario y las actividades, y le llegan a '+esc(firstName())+'.</div><button class="btn famb small" data-act="sc-tl-ask" data-id="'+esc(s.id)+'" style="margin-top:8px">📨 Pedir temario y actividades a la docente</button></div>':'<button class="btn ghost block" data-act="temario" style="margin-top:12px">+ Cargar temario</button>')+'</div>';
   }else if(tab==='notas'){
     var gs=S.grades.filter(function(g){return g.subject===s.id}).sort(function(a,b){return a.date<b.date?1:-1});
     out+='<div class="card"><div class="row between"><div><div class="muted">Promedio</div><div class="big">'+fmtScore(m.avg)+'</div></div><div class="muted" style="text-align:right">Meta '+fmtScore(S.settings.goal)+'<br>'+trendHtml(trend(s.id))+'</div></div>'+
@@ -5361,7 +5411,7 @@ function stripBullet(l){return String(l).replace(/^\s*([-•*·▪●○◦]|\d+
 
 /* ---------- Colegio: un temario por grado y materia para todas las secciones ---------- */
 function lvNames(){var seen={},out=[];schGrades().forEach(function(g){if(!seen[g.name]){seen[g.name]=1;out.push(g.name)}});return out}
-function lvSecs(lv,sjn){return schGrades().filter(function(g){return g.name===lv&&(!sjn||(g.subjects||[]).some(function(z){return z.name===sjn}))})}
+function lvSecs(lv,sjn){return schGrades().filter(function(g){return g.name===lv&&(!sjn||(g.subjects||[]).some(function(z){return z.name===sjn&&(MODE!=='teacher'||(canEditGrade(g.id)&&teacherOwns(z)))}))})}
 function lvSubjects(lv){var seen={},out=[];lvSecs(lv).forEach(function(g){(g.subjects||[]).forEach(function(z){if(!seen[z.name]){seen[z.name]=1;out.push(z)}})});return out}
 /* El mismo tema en todas las secciones (mismo trimestre, unidad y nombre) */
 function lvTemas(lv,sjn){
@@ -5410,7 +5460,7 @@ function vSchTemario(){
   });
   out+='<div class="row wrap between" style="gap:8px;margin-top:14px;border-top:1px solid var(--line);padding-top:12px"><div class="row wrap" style="gap:6px"><span class="muted">El año tiene:</span>'+
     '<button class="chipb'+(N===3?' on':'')+'" data-act="sc-ntri" data-id="3">3 trimestres</button><button class="chipb'+(N===4?' on':'')+'" data-act="sc-ntri" data-id="4">4 periodos</button></div>'+
-    (all.length?'<button class="btn danger small" data-act="sc-atemclr">Vaciar temario de '+esc(SC.tsj)+'</button>':'')+'</div></div>';
+    (all.length?'<button class="btn danger small" data-act="sc-atemclr">Vaciar temario de '+esc(SC.tsj)+'</button>':'')+'</div>'+temByChips()+'</div>';
   return out;
 }
 function triOpts(sel,N){var o='';for(var i=1;i<=N;i++)o+='<option value="'+i+'"'+(i===sel?' selected':'')+'>'+triLabel(i,N)+'</option>';return o}
@@ -5523,19 +5573,20 @@ function teacherTemas(g,sj){return schEvents(g.id).filter(function(e){return e.t
 function temarioCard(g,sj){
   var N=triN(schProf()),cur=triCurStaff();if(!SC.ttri||SC.ttri>N)SC.ttri=cur;
   var tl=teacherTemas(g,sj),all=unitsOf(tl);TU=all.filter(function(u){return u.tri===SC.ttri});
-  var out='<div class="card"><h2 style="margin:0">📚 Temario de '+esc(sj.name)+'</h2>'+
-    '<p class="muted" style="margin:6px 0 0">Lo define la administración para todo '+esc(g.name)+'. Tú pones la fecha de cada tema con 📅 y la app calcula cuánto dura cada unidad. Toca un tema para asignarle tareas, exámenes, laboratorios y recordatorios.</p>';
-  if(!tl.length)return out+'<div class="empty">La administración todavía no ha cargado el temario de '+esc(sj.name)+'. Mientras tanto puedes agregar actividades con «+ Agregar».</div></div>';
+  var own=teacherTemOK(g,sj);
+  var out='<div class="card"><div class="row between wrap" style="gap:8px"><h2 style="margin:0">📚 Temario de '+esc(sj.name)+'</h2>'+(own?'<div class="row" style="gap:6px"><button class="btn ghost small" data-act="sc-tnew-unit">+ Unidad</button><button class="btn small" data-act="sc-tbulk">Cargar temario</button></div>':'')+'</div>'+
+    '<p class="muted" style="margin:6px 0 0">'+(own?'Tú cargas el temario de '+esc(sj.name)+' para todo '+esc(g.name)+' (el colegio lo permite). ':'Lo define la administración para todo '+esc(g.name)+'. ')+'Pones la fecha de cada tema con 📅 y la app calcula cuánto dura cada unidad. Toca un tema para asignarle tareas, exámenes, laboratorios y recordatorios.</p>';
+  if(!tl.length)return out+'<div class="empty">'+(own?'Todavía no hay temas. Toca «Cargar temario»: pega o sube el plan con sus trimestres, unidades y temas.':'La administración todavía no ha cargado el temario de '+esc(sj.name)+'. Mientras tanto puedes agregar actividades con «+ Agregar».')+'</div></div>';
   out+='<div class="tabs" style="margin-top:10px">';for(var i=1;i<=N;i++){var nu=all.filter(function(u){return u.tri===i}).length;
     out+='<button data-act="sc-ttri" data-id="'+i+'" class="'+(i===SC.ttri?'active':'')+'" title="'+nu+' '+plural(nu,'unidad','unidades')+'">'+triLabel(i,N)+(i===cur?' <span class="tridot" aria-label="en curso"></span>':'')+'</button>'}
   out+='</div>';
   if(!TU.length)out+='<div class="empty">Sin unidades en este '+(N===4?'periodo':'trimestre')+'.</div>';
   TU.forEach(function(u,ui){
     var ds=u.temas.map(function(t){return t.date}),rg=rangeTxt(ds),nd=ds.filter(function(d){return !d}).length;
-    out+='<div class="unit"><div class="unit-h"><div class="grow"><div class="unit-t">'+esc(unitTitle(u))+'</div><div class="muted">'+u.temas.length+' '+plural(u.temas.length,'tema','temas')+' · '+(rg?'del '+esc(rg):'sin fechas')+(rg&&nd?' · '+nd+' sin fecha':'')+'</div></div><button class="btn ghost small" data-act="sc-tudates" data-id="'+ui+'">📅 Fechas</button></div>';
+    out+='<div class="unit"><div class="unit-h"><div class="grow"><div class="unit-t">'+esc(unitTitle(u))+'</div><div class="muted">'+u.temas.length+' '+plural(u.temas.length,'tema','temas')+' · '+(rg?'del '+esc(rg):'sin fechas')+(rg&&nd?' · '+nd+' sin fecha':'')+'</div></div>'+(own?'<button class="btn ghost small" data-act="sc-tunit" data-id="'+ui+'" aria-label="Editar unidad">'+ic('edit')+'</button>':'')+'<button class="btn ghost small" data-act="sc-tudates" data-id="'+ui+'">📅 Fechas</button></div>';
     u.temas.forEach(function(e){var na=schEvents(g.id).filter(function(x){return x.topicId===e.id}).length;
       out+='<div class="item" data-act="sc-tema" data-id="'+esc(g.id+'|'+e.id)+'" style="cursor:pointer"><span class="evi">📚</span><div class="grow"><div class="title">'+esc(e.title)+'</div><div class="muted">'+(e.date?esc(fmtDate(e.date)):'<span class="nodate">Sin fecha</span>')+' · '+(na?na+' '+plural(na,'actividad','actividades'):'sin actividades')+'</div></div>'+ic('chevr')+'</div>'});
-    out+='</div>';
+    out+=(own?'<button class="btn ghost small" data-act="sc-ttem1" data-id="'+ui+'" style="margin-top:6px">+ Tema</button>':'')+'</div>';
   });
   return out+'</div>';
 }
@@ -5572,7 +5623,7 @@ function temaModal(gid,eid){
     '<label for="tmd">📅 Fecha en que lo verás</label><div class="row" style="gap:8px"><input type="date" id="tmd" value="'+esc(e.date||'')+'" style="flex:1"><button class="btn ghost small" id="tmdok">Guardar fecha</button></div>'+
     (sibs.length?'<label class="secopt" style="margin-top:8px"><input type="checkbox" id="tmdsib" checked><span>Misma fecha en '+esc(secList(sibs))+'</span></label>':'')+
     '<label>Actividades de este tema</label>'+(acts.length?acts.map(function(a){return evRow(a,g,false)}).join(''):'<p class="muted" style="margin:0">Todavía no hay actividades para este tema.</p>')+
-    '<div class="row wrap" style="gap:8px;margin-top:14px"><button class="btn small" data-act="sc-tema-act" data-id="'+esc(gid+'|'+eid)+'">＋ Actividad para este tema</button>'+
+    '<div class="row wrap" style="gap:8px;margin-top:14px"><button class="btn small" data-act="sc-tema-act" data-id="'+esc(gid+'|'+eid)+'">＋ Actividad para este tema</button>'+(sj&&teacherTemOK(g,sj)?'<button class="btn ghost small" data-act="sc-ttemed" data-id="'+esc(gid+'|'+eid)+'">'+ic('edit')+'Editar tema</button>':'')+
     '<button class="btn ghost" data-act="close" style="margin-left:auto">Cerrar</button></div>');
   $('#tmdok').onclick=function(){var d=$('#tmd').value||'',b=this;b.disabled=true;
     var list=[g].concat($('#tmdsib')&&$('#tmdsib').checked?sibs:[]);
@@ -5805,6 +5856,7 @@ function demoSetRole(r){
 function taskBy(t){
   if(t.school)return '🧑‍🏫 '+(t.byName||'Colegio');
   if(t.by==='parent')return '👨‍👩‍👧 '+(t.byName||'Familia');
+  if(t.by==='teacher')return '🧑‍🏫 '+(t.byName||'Docente');
   return '🧑‍🎓 '+(MODE==='student'?'Tú':((nameOf()||'').split(' ')[0]||'Estudiante'));
 }
 var TOPS=[],FAM_TYPES=[];
@@ -5829,6 +5881,7 @@ function applyOp(T,op){
     T.tasks.push(Object.assign({id:nid,type:'Tarea',prio:'media',note:'',subject:'',done:false,by:'parent',byName:String(op.byName||'').slice(0,40)},c,{reminders:cleanRems(op.task&&op.task.reminders)}));
     return true;
   }
+  if(op.op==='tlink')return applyTLink(T,op);
   var t=T.tasks.filter(function(x){return x.id===op.taskId})[0];if(!t)return false;
   if(op.op==='edit'){if(t.school)return false;var c2=cleanTask(op.task),ch=false;Object.keys(c2).forEach(function(k){if(t[k]!==c2[k]){t[k]=c2[k];ch=true}});if(ch)t.editedBy=String(op.byName||'').slice(0,40);return ch}
   if(op.op==='del'){if(t.school)return false;T.tasks=T.tasks.filter(function(x){return x.id!==t.id&&!(x.parent===t.id&&!x.done)});return true}
@@ -5922,7 +5975,7 @@ function applyFamOps(list){
   if(MODE!=='student')return [];
   var done=[],msgs=[];
   list.filter(function(o){return o.student===mySid}).sort(function(a,b){return (a.at||0)-(b.at||0)}).forEach(function(o){
-    if(applyOp(S,o)){if(o.op==='add')msgs.push((o.byName||'Tu familia')+' agregó: '+((o.task&&o.task.title)||''));else if(o.op==='rem')msgs.push((o.byName||'Tu familia')+' te puso recordatorios 🔔')}
+    if(applyOp(S,o)){if(o.op==='add')msgs.push((o.byName||'Tu familia')+' agregó: '+((o.task&&o.task.title)||''));else if(o.op==='rem')msgs.push((o.byName||'Tu familia')+' te puso recordatorios 🔔');else if(o.op==='tlink')msgs.push((o.byName||'Tu docente')+' cargó temario y actividades 📚')}
     done.push(o.id);
   });
   if(done.length){save();if(msgs.length)toast(msgs[0]+(msgs.length>1?' (+'+(msgs.length-1)+')':''))}
@@ -5975,6 +6028,14 @@ function schoolAction(a,id,el){
     case 'sc-pgrade':SC.pgrade=id;render();window.scrollTo(0,0);break;
     case 'sc-tsel':SC.tsel=id;render();break;
     case 'pt-new-subj':parentTaskForm('',{subject:id});break;
+    case 'sc-tl-ask':tlAskModal(id);break;
+    case 'sc-temby':schAct('sch.tri',{by:id}).then(function(){toast(id==='teacher'?'Cada docente puede cargar el temario de sus materias ✅':'El temario lo carga el colegio ✅')});break;
+    case 'sc-tnew-unit':var tc1=temCurCtx();if(tc1){setTemCtx(tc1.g,tc1.sj);formLvUnit(null)}break;
+    case 'sc-tbulk':var tc2=temCurCtx();if(tc2){setTemCtx(tc2.g,tc2.sj);formTemarioBulk(lvSecs(tc2.g.name,tc2.sj.name),tc2.sj.name)}break;
+    case 'sc-tunit':var tc3=temCurCtx();if(tc3&&TU[+id])formLvUnit(teacherLvUnit(tc3.g,tc3.sj,TU[+id]));break;
+    case 'sc-ttem1':var tc4=temCurCtx();if(tc4&&TU[+id]){var lu4=teacherLvUnit(tc4.g,tc4.sj,TU[+id]);if(lu4)formLvTema(null,lu4)}break;
+    case 'sc-ttemed':var te=String(id).split('|'),tg=schGrade(te[0]),tev=schEvents(te[0]).filter(function(x){return x.id===te[1]})[0],tsj=tg&&tev&&(tg.subjects||[]).filter(function(z){return z.id===tev.subjectId})[0];
+      if(tsj){setTemCtx(tg,tsj);var lt=lvTemaOf(te[0],te[1]);closeModal();if(lt)formLvTema(lt)}break;
     case 'sc-tlv':SC.tlv=id;softRender();break;
     case 'sc-tsj':SC.tsj=id;softRender();break;
     case 'sc-atem1':formLvTema(null,LVU[+id]);break;
@@ -6045,6 +6106,150 @@ function tvListModal(kind){
 function tvBackBtn(){var sh=$('#sheet');if(!TVBACK||!sh||sh.querySelector('.tvback'))return;
   var h=sh.querySelector('h3');var html='<button class="btn ghost small tvback" data-act="tv-list" data-id="'+esc(TVBACK)+'">‹ '+esc(TVK[TVBACK]?TVK[TVBACK][1]:'Volver')+'</button>';
   if(h)h.insertAdjacentHTML('beforebegin',html);else sh.insertAdjacentHTML('afterbegin',html)}
+
+/* Parentesco de los encargados de la familia */
+var RELS=['Mamá','Papá','Abuela','Abuelo','Tía','Tío','Hermana mayor','Hermano mayor','Encargada','Encargado'];
+function relOpts(sel){return '<option value="">Elige…</option>'+RELS.map(function(r){return '<option'+(r===sel?' selected':'')+'>'+r+'</option>'}).join('')}
+function relVal(q){var e=$(q);return e?String(e.value||'').slice(0,20):''}
+function famInviteCard(){return typeof famInviteCloud==='function'?famInviteCloud():''}
+
+/* ================= Temario: ¿quién lo carga? y link de la familia a la docente ================= */
+function teacherOwns(z){var me=schMe();return !!(me&&z&&z.teacherId===me.id)}
+function teacherTemOK(g,sj){return MODE==='teacher'&&schProf().temarioBy==='teacher'&&!!g&&canEditGrade(g.id)&&teacherOwns(sj)}
+function setTemCtx(g,sj){SC.tlv=g.name;SC.tsj=sj.name;SC.atri=SC.ttri||triCurStaff()}
+function teacherLvUnit(g,sj,u){setTemCtx(g,sj);return unitsOf(lvTemas(g.name,sj.name)).filter(function(x){return x.tri===u.tri&&x.unitNo===u.unitNo})[0]||null}
+function temCurCtx(){var t=String(SC.tsel||'').split('|'),g=schGrade(t[0]),sj=g&&(g.subjects||[]).filter(function(z){return z.id===t[1]})[0];return g&&sj?{g:g,sj:sj}:null}
+function temByChips(){
+  var by=schProf().temarioBy==='teacher'?'teacher':'school';
+  return '<div class="row wrap" style="gap:6px;margin-top:10px"><span class="muted">¿Quién carga el temario?</span>'+
+    '<button class="chipb'+(by==='school'?' on':'')+'" data-act="sc-temby" data-id="school">🏫 El colegio</button><button class="chipb'+(by==='teacher'?' on':'')+'" data-act="sc-temby" data-id="teacher">🧑‍🏫 Cada docente</button></div>'+
+    (by==='teacher'?'<p class="muted" style="font-size:12.5px;margin:6px 0 0">Cada docente carga y corrige el temario de las materias que tiene asignadas. El colegio también puede hacerlo aquí.</p>':'');
+}
+
+/* ---------- Familia: pedir a la docente el temario y las actividades por un link ---------- */
+function tlKey(sid){return 'sf.tl.'+curSid+'.'+sid}
+function tlSaved(sid){try{var x=JSON.parse(lsGet(tlKey(sid))||'null');return x&&x.exp>Date.now()?x:null}catch(e){return null}}
+function tlAskModal(sid){
+  var s=subj(sid);if(!s)return;var sv=tlSaved(sid);
+  if(sv){tlShowLink(s,sv.link,sv.teacher);return}
+  openModal('<h3>📨 Pedir temario y actividades</h3><p class="muted" style="margin:0">Se crea un link para la docente de <b>'+esc(s.name)+'</b>. Lo abre sin cuenta, pega o sube el temario y pone las actividades. Todo le llega a '+esc(firstName())+' en la app, con su nombre.</p>'+
+    '<label for="tl1">Nombre de la docente</label><input id="tl1" maxlength="60" value="'+esc(s.teacher||'')+'" placeholder="Ej. Profa. Ruiz">'+
+    '<div class="row" style="margin-top:16px"><button class="btn ghost" data-act="close">Cancelar</button><button class="btn famb" id="tlok" style="margin-left:auto">Crear link</button></div>');
+  $('#tlok').onclick=function(){
+    var tn=$('#tl1').value.trim(),b=this;b.disabled=true;
+    var done=function(tok){var l=appLink()+'?tt='+tok;try{lsSet(tlKey(sid),JSON.stringify({link:l,teacher:tn,exp:Date.now()+29*864e5,tok:tok}))}catch(e){}tlShowLink(s,l,tn)};
+    if(SAMPLE){var tok='demotl'+uid()+uid();(demo.tlinks||(demo.tlinks={}))[tok]={student:curSid,subjectId:sid,subject:s.name,studentName:firstName(),teacherName:tn,askedBy:parentName(),topicsN:0,tasksN:0};done(tok);return}
+    if(!F()||!F().temLink){toast('Esta función se usa con las cuentas de la familia.');b.disabled=false;return}
+    F().temLink('create',{studentId:curSid,subjectId:sid,subject:s.name,teacherName:tn,askedBy:parentName()}).then(function(r){done(r.token)},function(e){b.disabled=false;toast(String(e&&e.code||'').indexOf('limit')>=0?'Hoy ya se crearon muchos links. Intenta mañana.':'No se pudo crear el link. Revisa tu conexión.')});
+  };
+}
+function tlMsg(s,link,teacher){return 'Hola'+(teacher?' '+teacher:'')+', soy '+parentName()+', de '+firstName()+'. ¿Me ayuda cargando el temario y las actividades de '+s.name+' en este link? No necesita cuenta ni instalar nada: '+link}
+function tlShowLink(s,link,teacher){
+  openModal('<h3>📨 Link para la docente</h3><p class="muted" style="margin:0">'+esc(s.name)+(teacher?' · '+esc(teacher):'')+'. Sirve 30 días y la docente puede usarlo varias veces para agregar más temas o actividades.</p>'+
+    '<div class="linkbox">'+esc(link)+'</div>'+
+    '<div class="row wrap" style="gap:8px;margin-top:12px"><a class="btn famb" href="https://wa.me/?text='+encodeURIComponent(tlMsg(s,link,teacher))+'" target="_blank" rel="noopener">💬 Enviar por WhatsApp</a><button class="btn ghost" id="tlcp">Copiar mensaje</button></div>'+
+    (SAMPLE?'<button class="btn ghost block" id="tldemo" style="margin-top:10px">Demostración: abrir como la docente</button>':'')+
+    '<div class="row" style="margin-top:14px"><button class="btn ghost small" id="tlnew">Crear otro link</button><button class="btn ghost" data-act="close" style="margin-left:auto">Cerrar</button></div>');
+  $('#tlcp').onclick=function(){var m=tlMsg(s,link,teacher);(navigator.clipboard?navigator.clipboard.writeText(m):Promise.reject()).then(function(){toast('Mensaje copiado ✅')},function(){toast('Copia el link de arriba')})};
+  $('#tlnew').onclick=function(){try{localStorage.removeItem(tlKey(s.id))}catch(e){}tlAskModal(s.id)};
+  if(SAMPLE)$('#tldemo').onclick=function(){var tok=(link.split('?tt=')[1]||'');tlDemoTeacher(tok)};
+}
+
+/* ---------- Página de la docente (sin cuenta): temario + actividades ---------- */
+var TLA=[];
+var TL_TYPES=[['Tarea','📝'],['Examen','🧪'],['Laboratorio','🔬'],['Proyecto','🧩'],['Exposición','🎤'],['Revisión de cuaderno','📓'],['Lectura','📖'],['Actividad','🎯']];
+function tlToken(){try{var t=new URLSearchParams(location.search).get('tt')||'';return /^[A-Za-z0-9_-]{20,64}$/.test(t)?t:''}catch(e){return ''}}
+function tlFormHtml(info){
+  var sent=(info.topicsN||info.tasksN)?'<div class="evc good" style="margin-top:10px"><div class="evc-e">✅</div><div>Ya envió '+(info.topicsN||0)+' '+plural(info.topicsN||0,'tema','temas')+' y '+(info.tasksN||0)+' '+plural(info.tasksN||0,'actividad','actividades')+'. Puede agregar más.</div></div>':'';
+  return '<div class="tch"><div class="tch-h">'+ic('book')+'<div><b style="font-size:18px">'+esc(info.subject)+'</b><div class="muted">Para '+esc(info.studentName)+(info.askedBy?' · lo pide '+esc(info.askedBy):'')+'</div></div></div>'+sent+
+    '<p class="muted" style="margin:12px 0 0">Gracias por apoyar. Lo que cargue aquí le aparece a '+esc(info.studentName)+' en su app, con su nombre. No necesita cuenta.</p>'+
+    '<label for="tln">Su nombre</label><input id="tln" maxlength="60" value="'+esc(info.teacherName||'')+'" placeholder="Ej. Profa. Ruiz">'+
+    '<h4 style="margin-top:18px">📚 Temario</h4><p class="muted" style="margin:0">Pegue el temario o suba el archivo. Escriba «Trimestre 1», «Unidad 1: Nombre» y debajo los temas.</p>'+
+    '<div class="tfile"><label class="btn ghost small" for="tlf" style="margin:0">📎 Subir archivo</label><input type="file" id="tlf" accept=".docx,.xlsx,.xlsm,.pdf,.txt,.csv,.tsv,text/plain,text/csv,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden><span class="muted" id="tlfs">Word, Excel, PDF o texto</span></div>'+
+    '<textarea id="tlt" rows="7" style="margin-top:10px" placeholder="Ej.\nTrimestre 1\nUnidad 1: Números enteros\nValor absoluto\nSuma de enteros"></textarea>'+
+    '<label for="tltr">Si no dice el trimestre, va en</label><select id="tltr"><option value="1">Trimestre 1</option><option value="2">Trimestre 2</option><option value="3">Trimestre 3</option><option value="4">Periodo 4</option></select>'+
+    '<div id="tlp" class="tbprev"></div>'+
+    '<h4 style="margin-top:18px">📝 Actividades</h4><p class="muted" style="margin:0">Tareas, exámenes, laboratorios y más, con su fecha de entrega.</p>'+
+    '<div id="tla"></div>'+
+    '<div class="tlrow"><div class="grid2" style="margin:0"><div><label for="tlaty">Tipo</label><select id="tlaty">'+TL_TYPES.map(function(x){return '<option value="'+esc(x[0])+'">'+x[1]+' '+esc(x[0])+'</option>'}).join('')+'</select></div><div><label for="tlad">Fecha de entrega</label><input type="date" id="tlad"></div></div>'+
+      '<label for="tlati">Título</label><input id="tlati" maxlength="120" placeholder="Ej. Guía de ejercicios 3">'+
+      '<label for="tlatp">Tema (opcional)</label><select id="tlatp"><option value="">Sin tema</option></select>'+
+      '<label for="tlan">Indicaciones (opcional)</label><input id="tlan" maxlength="300" placeholder="Ej. En el cuaderno, con letra clara">'+
+      '<button class="btn ghost block" id="tlaadd" style="margin-top:10px">＋ Agregar a la lista</button></div>'+
+    '<button class="btn block" id="tlsend" style="margin-top:18px">Enviar a '+esc(info.studentName)+'</button></div>';
+}
+function tlBind(onSend){
+  TLA=[];
+  var plan=function(){return temarioParse($('#tlt').value,+$('#tltr').value||1,[])};
+  var drawActs=function(){$('#tla').innerHTML=TLA.length?TLA.map(function(a,i){var e=(TL_TYPES.filter(function(x){return x[0]===a.type})[0]||['','📝'])[1];
+      return '<div class="item"><span class="evi">'+e+'</span><div class="grow"><div class="title">'+esc(a.title)+'</div><div class="muted">'+esc(a.type)+' · '+esc(fmtDate(a.due))+(a.topicTitle?' · 📚 '+esc(a.topicTitle):'')+'</div></div><button class="btn ghost small" data-tlrm="'+i+'" aria-label="Quitar">✕</button></div>'}).join(''):'';
+    Array.prototype.forEach.call(document.querySelectorAll('[data-tlrm]'),function(b){b.onclick=function(){TLA.splice(+b.dataset.tlrm,1);drawActs()}})};
+  var prev=function(){var p=plan(),sel=$('#tlatp'),cur=sel.value;
+    $('#tlp').innerHTML=p.items.length?'<b>'+p.units.length+' '+plural(p.units.length,'unidad','unidades')+' · '+p.items.length+' '+plural(p.items.length,'tema','temas')+'</b><ul>'+p.units.slice(0,12).map(function(u){return '<li>Trimestre '+u.tri+' · Unidad '+u.no+(u.name?': '+esc(u.name):'')+' — '+u.n+' '+plural(u.n,'tema','temas')+'</li>'}).join('')+'</ul>':'';
+    sel.innerHTML='<option value="">Sin tema</option>'+p.items.map(function(t){return '<option'+(t.title===cur?' selected':'')+'>'+esc(t.title)+'</option>'}).join('')};
+  ['#tlt','#tltr'].forEach(function(q){$(q).addEventListener('input',prev);$(q).addEventListener('change',prev)});
+  $('#tlf').onchange=function(){var f=this.files&&this.files[0];if(!f)return;var inp=this;$('#tlfs').textContent='Leyendo '+f.name+'…';
+    readTemarioFile(f).then(function(ls){inp.value='';if(!ls.length){$('#tlfs').textContent='No encontré temas en '+f.name+'.';return}
+      var ta=$('#tlt');ta.value=(ta.value.trim()?ta.value.trim()+'\n':'')+ls.join('\n');prev();$('#tlfs').textContent='✅ '+f.name+': revise la lista y borre lo que no sea tema.'},
+    function(){inp.value='';$('#tlfs').textContent='No se pudo leer el archivo. Guárdelo como Word (.docx), Excel (.xlsx), PDF o copie y pegue el texto.'})};
+  $('#tlaadd').onclick=function(){var ti=$('#tlati').value.trim(),d=$('#tlad').value;if(!ti){toast('Escriba el título de la actividad.');$('#tlati').focus();return}if(!d){toast('Elija la fecha de entrega.');return}
+    TLA.push({type:$('#tlaty').value,title:ti.slice(0,120),due:d,topicTitle:$('#tlatp').value,note:$('#tlan').value.trim().slice(0,300)});
+    $('#tlati').value='';$('#tlan').value='';drawActs();toast('Agregada a la lista ✅')};
+  $('#tlsend').onclick=function(){
+    var tn=$('#tln').value.trim(),p=plan().items;if(!tn){toast('Escriba su nombre.');$('#tln').focus();return}
+    if($('#tlati').value.trim()&&$('#tlad').value){$('#tlaadd').click()}
+    if(!p.length&&!TLA.length){toast('Agregue el temario o al menos una actividad.');return}
+    var b=this;b.disabled=true;onSend({teacherName:tn,topics:p,tasks:TLA.slice()},b);
+  };
+}
+function tlThanks(r,name){return '<div class="tch"><div class="evc good"><div class="evc-e">🙌</div><div><b>¡Gracias!</b><div class="muted">Se enviaron '+r.topics+' '+plural(r.topics,'tema','temas')+' y '+r.tasks+' '+plural(r.tasks,'actividad','actividades')+'. Le aparecen a '+esc(name)+' en su app.</div></div></div><button class="btn ghost block" id="tlmore" style="margin-top:12px">Agregar más</button></div>'}
+function tlTeacherBoot(api){
+  var tok=tlToken(),v=$('#view');
+  document.body.classList.remove('parent');
+  var nav=document.querySelector('nav');if(nav)nav.style.display='none';
+  var chip=$('#hChip');if(chip)chip.hidden=true;var fab=$('#fab');if(fab)fab.style.display='none';
+  $('#hTitle').textContent='Temario y actividades';$('#hSub').innerHTML='<span class="hd">StudyFlow · para docentes</span>';
+  Array.prototype.forEach.call(document.querySelectorAll('.lang'),function(x){x.style.display='none'});
+  var show=function(html){v.innerHTML='<div class="card">'+html+'</div>'};
+  var load=function(){show('<div class="empty">Cargando…</div>');
+    api.temLink('get',{token:tok}).then(function(info){
+      show(tlFormHtml(info));
+      tlBind(function(d,b){api.temLink('submit',Object.assign({token:tok},d)).then(function(r){show(tlThanks(r,info.studentName));$('#tlmore').onclick=load},function(){b.disabled=false;toast('No se pudo enviar. Revise su conexión e intente de nuevo.')})});
+    },function(e){var m=String(e&&(e.code||e.message)||'');
+      show('<div class="tch"><div class="evc late"><div class="evc-e">⏳</div><div><b>'+(m.indexOf('expired')>=0?'Este link ya venció':'Este link no es válido')+'</b><div class="muted">Pida a la familia que le envíe uno nuevo desde StudyFlow.</div></div></div></div>')});
+  };
+  load();
+}
+/* Demostración: la docente responde dentro de la app */
+function tlDemoTeacher(tok){
+  var L=demo.tlinks&&demo.tlinks[tok];if(!L){toast('Link no encontrado');return}
+  openModal(tlFormHtml(L)+'<div class="row" style="margin-top:12px"><button class="btn ghost" data-act="close" style="margin-left:auto">Cerrar</button></div>');
+  tlBind(function(d){
+    var topics=d.topics.map(function(x){return {title:x.title,date:x.date||'',tri:x.tri,unitNo:x.unitNo,unitName:x.unitName,ord:x.ord}}),tasks=d.tasks;
+    var op={op:'tlink',id:uid(),student:L.student,subject:L.subjectId,byName:d.teacherName,topics:topics,tasks:tasks,at:Date.now()};
+    applyOp(demo.S,op);S=demo.S;L.topicsN+=topics.length;L.tasksN+=tasks.length;L.teacherName=d.teacherName;
+    closeModal();toast(d.teacherName+' envió '+topics.length+' '+plural(topics.length,'tema','temas')+' y '+tasks.length+' '+plural(tasks.length,'actividad','actividades')+' ✅');render();
+  });
+}
+/* La app del estudiante aplica lo que envió la docente */
+function applyTLink(T,op){
+  var sj=String(op.subject||''),ch=false,by=String(op.byName||'Docente').slice(0,40);T.topics=T.topics||[];
+  if(!(T.subjects||[]).some(function(s){return s.id===sj}))return false;
+  (op.topics||[]).slice(0,200).forEach(function(x,i){
+    var title=String(x&&x.title||'').trim().slice(0,120);if(!title)return;var tri=+x.tri||1,un=+x.unitNo||1;
+    if(T.topics.some(function(t){return t.subject===sj&&(t.tri||0)===tri&&(t.unit||0)===un&&String(t.title).toLowerCase()===title.toLowerCase()}))return;
+    var d=/^\d{4}-\d{2}-\d{2}$/.test(x.date||'')?x.date:'';
+    T.topics.push({id:'tt_'+op.id+'_'+i,subject:sj,title:title,week:d?mondayOf(parseD(d)):'',date:d,tri:tri,unit:un,unitName:String(x.unitName||'').slice(0,100),ord:+x.ord||i,conf:0,byTeacher:by});ch=true;
+  });
+  (op.tasks||[]).slice(0,60).forEach(function(x,i){
+    var nid='tk_'+op.id+'_'+i;if(T.tasks.some(function(t){return t.id===nid}))return;
+    var title=String(x&&x.title||'').trim().slice(0,120),due=/^\d{4}-\d{2}-\d{2}$/.test(x.due||'')?x.due:'';if(!title||!due)return;
+    var tp=x.topicTitle?T.topics.filter(function(t){return t.subject===sj&&String(t.title).toLowerCase()===String(x.topicTitle).toLowerCase()})[0]:null;
+    var t={id:nid,title:title,subject:sj,type:String(x.type||'Tarea').slice(0,40),due:due,time:/^\d\d:\d\d$/.test(x.time||'')?x.time:'',note:String(x.note||'').slice(0,300),prio:x.type==='Examen'?'alta':'media',done:false,by:'teacher',byName:by};
+    if(tp)t.topic=tp.id;T.tasks.push(t);ch=true;
+  });
+  return ch;
+}
 
 /* ---------- Eventos ---------- */
 document.addEventListener('click',function(e){
