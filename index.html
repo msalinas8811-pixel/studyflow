@@ -4317,7 +4317,7 @@ function schErr(e){
   var c=String(e&&(e.code||e.message)||'');
   return ({'bad-code':'Ese código de colegio no existe. Revísalo con el colegio.','no-seats':'El colegio ya usó todos los cupos de su plan. Avísale al colegio.','already':'Ya enviaste una solicitud a este colegio.',
     'forbidden':'No tienes permiso para hacer esto.','not-found':'No se encontró. Actualiza la página.','invalid':'Revisa los datos e intenta de nuevo.','inactive':'Este colegio no está activo en StudyFlow.',
-    'verify':'Primero verifica tu correo.','no-invite':'No hay invitaciones para tu correo.','exists':'Ya existe un registro con ese correo.'})[c.replace(/^.*\//,'')]||'No se pudo completar. Revisa tu conexión e intenta de nuevo.';
+    'verify':'Primero verifica tu correo.','no-invite':'No hay invitaciones para tu correo.','exists':'Ya existe un registro con ese correo.','invalid-subject':'Esa materia no está en el grado. Actualiza la página e intenta de nuevo (código: materia).','invalid-items':'El servidor no recibió temas válidos (código: temas).'})[c.replace(/^.*\//,'')]||('No se pudo completar. Revisa tu conexión e intenta de nuevo.'+(c&&c.length<40?' ('+c+')':''));
 }
 function schAct(a,p){
   p=p||{};
