@@ -762,6 +762,10 @@ header small .hs{display:block;font-size:13px;opacity:.92;margin:2px 0 1px;line-
 .pcont:last-child{border-bottom:0}
 .booktable td .dot{display:inline-block;width:9px;height:9px;vertical-align:middle}
 .booktable tbody tr[data-act]:hover td{background:var(--primary-soft)}
+.evc.bad{background:var(--bad-soft)}
+.pfm{display:grid;gap:8px;margin-top:10px;font-size:14px}
+.pfrow{border:1px solid var(--line);border-radius:14px;padding:10px 12px;margin-top:10px}
+.btn.danger-t{color:var(--bad)}
 </style>
 </head>
 <body>
@@ -788,7 +792,7 @@ var DAYS=['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
 var DEF={goal:70,pomo:25,brk:5,max:100,weekly:300,name:'',grade:''};
 var SNAV=[['home','home','Inicio'],['cal','calendar','Calendario'],['study','sparkle','Estudiar'],['groups','trophy','Retos'],['casa','casa','Casa'],['progress','trend','Progreso']];
 var PNAV=[['p_home','trend','Resumen'],['p_act','clipboard','Actividad'],['p_help','heart','Apoyar'],['p_casa','casa','Casa'],['p_rewards','gift','Premios']];
-var titles={cal:'Calendario',s_home:'Resumen',s_cal:'Calendario',s_grades:'Grados',s_tem:'Temario',s_students:'Alumnos',s_staff:'Personal',s_profile:'Colegio',t_cal:'Calendario',t_grades:'Estudiantes',n_send:'Enfermería',n_hist:'Historial',pl_home:'Colegios',pl_dash:'Dashboard',s_dash:'Dashboard',t_dash:'Mis materias',home:'Inicio',tasks:'Tareas',subjects:'Temario y materias',grades:'Notas',study:'Estudio',tutor:'Tutor de IA',groups:'Retos',casa:'Tareas de la casa',p_casa:'Tareas de la casa',progress:'Progreso',
+var titles={cal:'Calendario',s_home:'Resumen',s_cal:'Calendario',s_grades:'Grados',s_tem:'Temario',s_students:'Alumnos',s_staff:'Personal',s_profile:'Colegio',t_cal:'Calendario',t_grades:'Estudiantes',n_send:'Enfermería',n_hist:'Historial',pl_home:'Colegios',pl_dash:'Dashboard',pl_fam:'Familias',s_dash:'Dashboard',t_dash:'Mis materias',home:'Inicio',tasks:'Tareas',subjects:'Temario y materias',grades:'Notas',study:'Estudio',tutor:'Tutor de IA',groups:'Retos',casa:'Tareas de la casa',p_casa:'Tareas de la casa',progress:'Progreso',
   p_home:'Resumen',p_act:'Actividad',p_help:'Apoyar',p_rewards:'Premios'};
 var KINDS={felicitacion:['🎉','Felicitación','star'],libro:['📚','Libro o recurso','book'],consejo:['💡','Ayuda en un tema','bulb'],recordatorio:['⏰','Recordatorio','clock'],premio:['🎁','Premio','gift'],pro:['🚀','Plan Pro','star'],solicitud:['🙋','Solicitud','hand']};
 
@@ -1773,7 +1777,7 @@ function render(){
   else chip.innerHTML=MODE==='parent'?'<span class="ava">'+esc(parentAvatar())+'</span><span class="nm">'+esc(parentName())+'</span>'+ic('gear'):'<span class="ava">'+esc(studentAvatar())+'</span><span class="nm">'+esc(nameOf())+'</span>'+ic('gear');
   $('#hTitle').textContent=viewTitle();
   $('#fab').style.display=fabOn()?'block':'none';
-  var fn={cal:vCal,subj:vSubj,s_home:vSchHome,s_cal:vSchCal,s_grades:vSchGrades,s_tem:vSchTemario,s_students:vSchStudents,s_staff:vSchStaff,s_profile:vSchProfile,t_cal:vSchCal,t_grades:vTeacherGrades,n_send:vNurseSend,n_hist:vNurseHist,pl_home:vPlat,pl_dash:vPlatDash,s_dash:vSchDash,t_dash:vTeacherDash,home:vHomeV2,tasks:vTasks,subjects:vSubjects,grades:vGrades,study:vStudy,tutor:vTutor,groups:vGroups,casa:vCasa,progress:vProgressB,
+  var fn={cal:vCal,subj:vSubj,s_home:vSchHome,s_cal:vSchCal,s_grades:vSchGrades,s_tem:vSchTemario,s_students:vSchStudents,s_staff:vSchStaff,s_profile:vSchProfile,t_cal:vSchCal,t_grades:vTeacherGrades,n_send:vNurseSend,n_hist:vNurseHist,pl_home:vPlat,pl_dash:vPlatDash,pl_fam:vPlatFam,s_dash:vSchDash,t_dash:vTeacherDash,home:vHomeV2,tasks:vTasks,subjects:vSubjects,grades:vGrades,study:vStudy,tutor:vTutor,groups:vGroups,casa:vCasa,progress:vProgressB,
     p_home:pHome,p_casa:pCasa,p_act:pAct,p_help:pHelp,p_rewards:pRewards}[view];
   if(typeof preRenderHook==='function')preRenderHook();
   $('#view').innerHTML=banner()+hubTabs()+parentActBar()+(view==='p_act'?'':'')+fn()+parentTemarioCard();
@@ -4439,7 +4443,7 @@ function stuSchool(){
 function schErr(e){
   var c=String(e&&(e.code||e.message)||'');
   return ({'bad-code':'Ese código de colegio no existe. Revísalo con el colegio.','no-seats':'El colegio ya usó todos los cupos de su plan. Avísale al colegio.','already':'Ya enviaste una solicitud a este colegio.',
-    'forbidden':'No tienes permiso para hacer esto.','not-found':'No se encontró. Actualiza la página.','invalid':'Revisa los datos e intenta de nuevo.','inactive':'Este colegio no está activo en StudyFlow.',
+    'forbidden':'No tienes permiso para hacer esto.','confirm':'El nombre escrito no coincide.','owner':'No se puede quitar al responsable principal. Primero elige otro responsable principal.','last':'En la demostración debe quedar al menos un colegio.','not-found':'No se encontró. Actualiza la página.','invalid':'Revisa los datos e intenta de nuevo.','inactive':'Este colegio no está activo en StudyFlow.',
     'verify':'Primero verifica tu correo.','no-invite':'No hay invitaciones para tu correo.','exists':'Ya existe un registro con ese correo.','invalid-subject':'Esa materia no está en el grado. Actualiza la página e intenta de nuevo (código: materia).','invalid-items':'El servidor no recibió temas válidos (código: temas).'})[c.replace(/^.*\//,'')]||('No se pudo completar. Revisa tu conexión e intenta de nuevo.'+(c&&c.length<40?' ('+c+')':''));
 }
 function schAct(a,p){
@@ -4467,6 +4471,13 @@ function demoReduce(a,p){
       return {id:id};
     }
     case 'plat.use':D.cur=p.id;return {};
+    case 'plat.del':{var ks=Object.keys(D.schools);need(D.schools[p.id]);if(ks.length<2)throw {code:'last'};delete D.schools[p.id];if(D.cur===p.id)D.cur=Object.keys(D.schools)[0];return {ok:true}}
+    case 'plat.fams':return {families:platFamDemo()};
+    case 'plat.famSave':{var pf=platFamDemo().filter(function(z){return z.id===p.id})[0];need(pf&&p.name);pf.name=p.name;if(p.owner)pf.owner=p.owner;
+      (p.members||[]).forEach(function(m){var mm=pf.members.filter(function(z){return z.uid===m.uid})[0];if(mm){mm.name=m.name;if(mm.role==='parent'){mm.rel=m.rel;mm.phone=m.phone}}});
+      pf.plan=p.plan==='pro'?{plan:'pro',until:parseD(p.until).getTime()+864e5-1}:{plan:'free'};return {ok:true}}
+    case 'plat.famMemberDel':{var pf2=platFamDemo().filter(function(z){return z.id===p.id})[0];need(pf2);if(pf2.owner===p.uid)throw {code:'owner'};pf2.members=pf2.members.filter(function(z){return z.uid!==p.uid});return {ok:true}}
+    case 'plat.famDel':{var L=platFamDemo(),n0=L.length;demo.platFams=L.filter(function(z){return z.id!==p.id});need(demo.platFams.length<n0);return {ok:true,accounts:p.accounts?2:0}}
     case 'plat.login':{
       var xs=D.schools[p.id];need(xs&&p.email&&String(p.password||'').length>=8);
       var ad=xs.staff.filter(function(z){return nrm(z.email)===nrm(p.email)})[0];
@@ -4708,7 +4719,7 @@ function navItems(){
   if(MODE==='school')return [['s_dash','chart','Dashboard'],['s_home','home','Resumen'],['s_cal','calendar','Calendario'],['s_grades','book','Grados'],['s_tem','bookopen','Temario'],['s_students','student','Alumnos'],['s_staff','users','Personal'],['s_profile','school','Colegio']];
   if(MODE==='teacher')return [['t_dash','chart','Mis materias'],['t_cal','calendar','Calendario'],['t_grades','student','Estudiantes']];
   if(MODE==='nurse')return [['n_send','nurse','Avisos'],['n_hist','list','Historial']];
-  if(MODE==='platform')return [['pl_dash','chart','Dashboard'],['pl_home','school','Colegios']];
+  if(MODE==='platform')return [['pl_dash','chart','Dashboard'],['pl_home','school','Colegios'],['pl_fam','users','Familias']];
   return SNAV;
 }
 function navActive(){if(MODE==='parent'&&view==='subj')return 'p_home';return NAVMAP[view]||view}
@@ -5090,7 +5101,7 @@ function vPlat(){
       '<span class="badge '+st[0]+'">'+st[1]+'</span></div>'+
       '<div class="row between" style="margin-top:8px;font-size:13px"><span>'+(x.students||0)+(x.seats?' / '+x.seats:'')+' alumnos</span><span class="muted">'+(x.until?'Vence '+esc(fmtDate(x.until)):'')+'</span></div>'+
       (x.seats?'<div class="bar" style="margin-top:6px"><i style="width:'+p+'%"></i></div>':'')+
-      '<div class="row wrap" style="gap:8px;margin-top:10px"><button class="btn ghost small" data-act="sc-plat-edit" data-id="'+esc(x.id)+'">'+ic('edit')+'Editar</button>'+(SAMPLE?'<button class="btn ghost small" data-act="sc-plat-open" data-id="'+esc(x.id)+'">Ver como su administrador</button>':'')+'</div></div>';
+      '<div class="row wrap" style="gap:8px;margin-top:10px"><button class="btn ghost small" data-act="sc-plat-edit" data-id="'+esc(x.id)+'">'+ic('edit')+'Editar</button><button class="btn ghost small danger-t" data-act="sc-plat-del" data-id="'+esc(x.id)+'">🗑️ Eliminar</button>'+(SAMPLE?'<button class="btn ghost small" data-act="sc-plat-open" data-id="'+esc(x.id)+'">Ver como su administrador</button>':'')+'</div></div>';
   });
   return out;
 }
@@ -5275,7 +5286,7 @@ function formPlatSchool(id){
       '<p class="muted" style="font-size:13px">Con la contraseña, el colegio entra directo con «Entrar» y luego la cambia en ⚙️. Si la dejas vacía, la persona recibe una invitación y entra con Google.</p>')+
     (id?adminAccessHtml(x):'')+
     '<label for="p14">Notas internas (opcional)</label><textarea id="p14" rows="2" maxlength="300">'+esc(x.notes||'')+'</textarea>'+
-    '<div class="row" style="margin-top:16px"><button class="btn ghost" data-act="close" style="margin-left:auto">Cancelar</button><button class="btn" id="pok">Guardar</button></div>');
+    '<div class="row" style="margin-top:16px">'+(id?'<button class="btn danger" data-act="sc-plat-del" data-id="'+esc(id)+'">Eliminar colegio</button>':'')+'<button class="btn ghost" data-act="close" style="margin-left:auto">Cancelar</button><button class="btn" id="pok">Guardar</button></div>');
   $('#pok').onclick=function(){
     var nm=$('#p1').value.trim();if(!nm){toast('Escribe el nombre del colegio.');$('#p1').focus();return}
     var ae=$('#p13')?$('#p13').value.trim().toLowerCase():'';if(ae&&!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(ae)){toast('El correo del administrador no es válido.');return}
@@ -6153,6 +6164,9 @@ function schoolAction(a,id,el){
     case 'pt-rem':closeModal();parentRemForm(id);break;
     case 'pt-del':closeModal();parentTaskDel(id);break;
     case 'sc-plat-edit':formPlatSchool(id);break;
+    case 'sc-plat-del':platSchDelModal(id);break;
+    case 'sc-pf-edit':formPlatFam(id);break;
+    case 'sc-pf-del':platFamDelModal(id);break;
     case 'sc-plat-open':schAct('plat.use',{id:id}).then(function(){demoSetRole('school')});break;
     case 'sc-switch':closeModal();if(typeof staffPicker==='function')staffPicker();break;
     default:if(typeof schoolCloudAction==='function')schoolCloudAction(a,id,el);
@@ -6549,6 +6563,101 @@ function tlPickModal(){
   openModal('<h3>📨 Pedir notas a la docente</h3><p class="muted" style="margin:0">Elige la materia. Se crea un link que la docente abre sin cuenta ni registro para poner las notas de '+esc(firstName())+'.</p><div class="eflist" style="margin-top:12px">'+
     S.subjects.map(function(s){return '<button class="item" data-act="sc-tl-notas" data-id="'+esc(s.id)+'" style="width:100%;text-align:left;cursor:pointer;background:none;border:0"><span class="dot" style="background:'+esc(s.color)+'"></span><div class="grow"><div class="title">'+esc(s.name)+'</div>'+(s.teacher?'<div class="muted">'+esc(s.teacher)+'</div>':'')+'</div>'+ic('chevr')+'</button>'}).join('')+
     '</div><div class="row" style="margin-top:14px"><button class="btn ghost" data-act="close" style="margin-left:auto">Cancelar</button></div>');
+}
+
+
+/* ---------- Plataforma: familias y eliminar colegios ---------- */
+var PLATF=null,PFQ='';
+function platFamDemo(){
+  if(!demo.platFams){var t=Date.now(),sc=demo.sch.cur,sn=(demo.sch.schools[sc]||{}).profile||{};
+    demo.platFams=[
+      {id:'pf1',name:'Familia Salinas (ejemplo)',code:'K7P2QX',owner:'u1',createdAt:t-40*864e5,plan:{plan:'pro',until:t+200*864e5},schools:[{id:sc,name:sn.name||'Colegio'}],
+        members:[{uid:'u1',role:'parent',name:'Miguel Salinas',rel:'Papá',phone:'7012-3456',email:'miguel@ejemplo.com'},{uid:'u2',role:'parent',name:'Rosa de Salinas',rel:'Mamá',phone:'',email:'rosa@ejemplo.com'},{uid:'u3',role:'student',name:'Ana Sofía Salinas',email:'ana@ejemplo.com'}]},
+      {id:'pf2',name:'Familia Pérez',code:'P4T9WM',owner:'u4',createdAt:t-12*864e5,plan:{plan:'free'},schools:[],
+        members:[{uid:'u4',role:'parent',name:'Carla Pérez',rel:'Mamá',phone:'7777-1111',email:'carla@ejemplo.com'},{uid:'u5',role:'student',name:'Diego Pérez',email:'diego@ejemplo.com'},{uid:'u6',role:'student',name:'Sofía Pérez',email:'sofi@ejemplo.com'}]},
+      {id:'pf3',name:'Familia Gómez',code:'G2H8KD',owner:'u7',createdAt:t-3*864e5,plan:{plan:'free'},schools:[],
+        members:[{uid:'u7',role:'parent',name:'José Gómez',rel:'Papá',phone:'',email:'jose@ejemplo.com'}]}]}
+  return demo.platFams;
+}
+function platFams(){return SAMPLE?platFamDemo():(PLATF||[])}
+function platFamLoad(){
+  if(SAMPLE||SC.fbusy)return;SC.fbusy=true;
+  F().school('plat.fams',{}).then(function(r){PLATF=(r&&r.families)||[];SC.fbusy=false;softRender()},function(e){PLATF=[];SC.fbusy=false;toast(schErr(e));softRender()});
+}
+function platFamReload(){if(!SAMPLE){PLATF=null;platFamLoad()}softRender()}
+function famPlanTxt(p){return p&&p.plan==='pro'&&p.until>Date.now()?'Pro hasta '+fmtDate(ymd(new Date(p.until))):'Gratis'}
+function vPlatFam(){
+  if(!SAMPLE&&PLATF==null){platFamLoad();return '<div class="card"><div class="empty">Cargando familias…</div></div>'}
+  var l=platFams(),q=nrm(PFQ),st=0,pro=0;
+  l.forEach(function(f){st+=f.members.filter(function(m){return m.role==='student'}).length;if(f.plan&&f.plan.plan==='pro'&&f.plan.until>Date.now())pro++});
+  var out='<div class="grid2"><div class="card stat s-blue"><span class="si">'+ic('users')+'</span><div class="muted">Familias</div><div class="big">'+l.length+'</div></div>'+
+    '<div class="card stat s-teal"><span class="si">'+ic('student')+'</span><div class="muted">Estudiantes</div><div class="big">'+st+'</div><div class="muted">'+pro+' '+plural(pro,'familia Pro','familias Pro')+'</div></div></div>';
+  out+='<input id="pfq" type="search" placeholder="Buscar por familia, nombre, correo o código" value="'+esc(PFQ)+'" style="margin-bottom:12px">';
+  var fl=l.filter(function(f){return !q||nrm([f.name,f.code].concat(f.members.map(function(m){return m.name+' '+(m.email||'')})).join(' ')).indexOf(q)>=0}).sort(function(a,b){return (b.createdAt||0)-(a.createdAt||0)});
+  if(!fl.length)out+='<div class="card"><div class="empty">'+(l.length?'Ninguna familia coincide con la búsqueda.':'Todavía no hay familias registradas.')+'</div></div>';
+  fl.forEach(function(f){
+    var ps=f.members.filter(function(m){return m.role==='parent'}),ss=f.members.filter(function(m){return m.role==='student'}),pro=f.plan&&f.plan.plan==='pro'&&f.plan.until>Date.now();
+    out+='<div class="card"><div class="row between" style="align-items:flex-start"><div class="grow" data-act="sc-pf-edit" data-id="'+esc(f.id)+'" style="cursor:pointer"><div class="title" style="font-size:17px">'+esc(f.name||'(sin nombre)')+'</div>'+
+      '<div class="muted">Código '+esc(f.code||'—')+(f.createdAt?' · desde '+esc(fmtDate(ymd(new Date(f.createdAt)))):'')+'</div></div><span class="badge '+(pro?'ok':'')+'">'+esc(famPlanTxt(f.plan))+'</span></div>'+
+      '<div class="pfm">'+ps.map(function(m){return '<div>👤 <b>'+esc(m.name||'Encargado')+'</b>'+(m.rel?' · '+esc(m.rel):'')+(m.uid===f.owner?' <span class="badge">principal</span>':'')+'<div class="muted">'+[m.email,m.phone].filter(Boolean).map(esc).join(' · ')+'</div></div>'}).join('')+
+        ss.map(function(m){return '<div>🧑‍🎓 '+esc(m.name||'Estudiante')+(m.email?'<div class="muted">'+esc(m.email)+'</div>':'')+'</div>'}).join('')+
+        (f.schools&&f.schools.length?'<div class="muted">🏫 '+f.schools.map(function(x){return esc(x.name)}).join(', ')+'</div>':'')+'</div>'+
+      '<div class="row wrap" style="gap:8px;margin-top:10px"><button class="btn ghost small" data-act="sc-pf-edit" data-id="'+esc(f.id)+'">'+ic('edit')+'Editar</button><button class="btn ghost small danger-t" data-act="sc-pf-del" data-id="'+esc(f.id)+'">🗑️ Eliminar</button></div></div>';
+  });
+  setTimeout(function(){var i=$('#pfq');if(i)i.oninput=function(){PFQ=i.value;var p=i.selectionStart;softRender();var j=$('#pfq');if(j){j.focus();try{j.setSelectionRange(p,p)}catch(e){}}}},0);
+  return out;
+}
+function formPlatFam(id){
+  var f=platFams().filter(function(x){return x.id===id})[0];if(!f)return;
+  var ps=f.members.filter(function(m){return m.role==='parent'}),ss=f.members.filter(function(m){return m.role==='student'}),pro=f.plan&&f.plan.plan==='pro'&&f.plan.until>Date.now();
+  var row=function(m){var own=m.uid===f.owner;return '<div class="pfrow" data-u="'+esc(m.uid)+'" data-r="'+m.role+'"><div class="grid2" style="margin:0"><div><label>'+(m.role==='parent'?'Encargado':'Estudiante')+(own?' (principal)':'')+'</label><input class="pfn" maxlength="60" value="'+esc(m.name||'')+'"></div>'+
+    (m.role==='parent'?'<div><label>Parentesco</label><input class="pfr" maxlength="30" value="'+esc(m.rel||'')+'" placeholder="Mamá, Papá, Abuela…"></div></div><label>Teléfono</label><input class="pfp" maxlength="20" value="'+esc(m.phone||'')+'">':'<div></div></div>')+
+    (m.email?'<div class="muted" style="font-size:12.5px;margin-top:4px">'+esc(m.email)+'</div>':'')+
+    (own?'':'<button type="button" class="btn ghost small danger-t" data-pfrm="'+esc(m.uid)+'" style="margin-top:6px">Quitar de la familia</button>')+'</div>'};
+  openModal('<h3>Editar familia</h3><p class="muted" style="margin:0">Código '+esc(f.code||'—')+'</p>'+
+    '<label for="pf1">Nombre de la familia</label><input id="pf1" maxlength="60" value="'+esc(f.name||'')+'">'+
+    (ps.length>1?'<label for="pf2">Responsable principal</label><select id="pf2">'+ps.map(function(m){return '<option value="'+esc(m.uid)+'"'+(m.uid===f.owner?' selected':'')+'>'+esc(m.name||m.email||'Encargado')+'</option>'}).join('')+'</select><p class="muted" style="font-size:12.5px;margin:4px 0 0">Es quien puede eliminar estudiantes y administrar la familia.</p>':'')+
+    '<h4>Plan</h4><div class="grid2" style="margin:0"><div><select id="pf3"><option value="free"'+(pro?'':' selected')+'>Gratis</option><option value="pro"'+(pro?' selected':'')+'>Pro</option></select></div><div><input id="pf4" type="date" value="'+esc(pro?ymd(new Date(f.plan.until)):shift(ymd(new Date()),30))+'" aria-label="Pro hasta"'+(pro?'':' disabled')+'></div></div>'+
+    '<h4>Encargados</h4>'+ps.map(row).join('')+(ss.length?'<h4>Estudiantes</h4>'+ss.map(row).join(''):'')+
+    '<div class="row" style="margin-top:16px"><button class="btn danger" id="pfdel">Eliminar familia</button><button class="btn ghost" data-act="close" style="margin-left:auto">Cancelar</button><button class="btn" id="pfok">Guardar</button></div>');
+  $('#pf3').onchange=function(){$('#pf4').disabled=this.value!=='pro'};
+  $('#pfdel').onclick=function(){platFamDelModal(id)};
+  Array.prototype.forEach.call(document.querySelectorAll('[data-pfrm]'),function(b){b.onclick=function(){
+    var m=f.members.filter(function(x){return x.uid===b.dataset.pfrm})[0];if(!m)return;
+    if(!b.dataset.sure){b.dataset.sure='1';b.textContent='¿Seguro? Toca otra vez para quitar';toast(m.role==='student'?'Se borran sus tareas y datos dentro de la familia y deja de estar en su colegio.':'Su cuenta queda libre para unirse a otra familia.');return}
+    b.disabled=true;schAct('plat.famMemberDel',{id:id,uid:m.uid}).then(function(){toast('Quitado de la familia ✅');if(SAMPLE){f.members=f.members.filter(function(x){return x.uid!==m.uid})}closeModal();platFamReload()},function(){b.disabled=false})}});
+  $('#pfok').onclick=function(){
+    var nm=$('#pf1').value.trim();if(!nm){toast('Escribe el nombre de la familia.');$('#pf1').focus();return}
+    var pl=$('#pf3').value,un=$('#pf4').value;if(pl==='pro'&&!un){toast('Elige hasta cuándo es Pro.');return}
+    var ms=Array.prototype.map.call(document.querySelectorAll('.pfrow'),function(r){var o={uid:r.dataset.u,name:r.querySelector('.pfn').value.trim()};if(r.dataset.r==='parent'){o.rel=r.querySelector('.pfr').value.trim();o.phone=r.querySelector('.pfp').value.trim()}return o});
+    if(ms.some(function(m){return !m.name})){toast('Cada persona necesita un nombre.');return}
+    var o={id:id,name:nm,owner:$('#pf2')?$('#pf2').value:'',plan:pl,until:un,members:ms},b=this;b.disabled=true;
+    schAct('plat.famSave',o).then(function(){closeModal();toast('Familia actualizada ✅');platFamReload()},function(){b.disabled=false});
+  };
+}
+function platFamDelModal(id){
+  var f=platFams().filter(function(x){return x.id===id})[0];if(!f)return;
+  var ns=f.members.filter(function(m){return m.role==='student'}).length;
+  openModal('<h3>🗑️ Eliminar familia</h3><div class="evc bad" style="margin-top:8px"><div class="evc-e">⚠️</div><div><b>Esto no se puede deshacer.</b><div class="muted">Se borran todos los datos de <b>'+esc(f.name)+'</b>: '+f.members.length+' '+plural(f.members.length,'integrante','integrantes')+', '+ns+' '+plural(ns,'estudiante','estudiantes')+', tareas, notas, temario, historial y su vínculo con colegios.</div></div></div>'+
+    '<label class="lvopt" style="margin-top:12px"><input type="checkbox" id="pfda"><span>Borrar también sus cuentas de acceso (correo y contraseña). Si no lo marcas, podrán entrar y crear o unirse a otra familia.</span></label>'+
+    '<label for="pfdc">Para confirmar, escribe el nombre de la familia: <b>'+esc(f.name)+'</b></label><input id="pfdc" autocomplete="off">'+
+    '<div class="row" style="margin-top:16px"><button class="btn ghost" data-act="close" style="margin-left:auto">Cancelar</button><button class="btn danger" id="pfdok">Eliminar para siempre</button></div>');
+  $('#pfdok').onclick=function(){
+    if(nrm($('#pfdc').value)!==nrm(f.name)){toast('El nombre no coincide.');$('#pfdc').focus();return}
+    var b=this;b.disabled=true;
+    schAct('plat.famDel',{id:id,confirm:f.name,accounts:$('#pfda').checked}).then(function(r){closeModal();toast('Familia eliminada'+(r&&r.accounts?' · '+r.accounts+' '+plural(r.accounts,'cuenta borrada','cuentas borradas'):''));platFamReload()},function(){b.disabled=false});
+  };
+}
+function platSchDelModal(id){
+  var x=platList().filter(function(z){return z.id===id})[0];if(!x)return;
+  openModal('<h3>🗑️ Eliminar colegio</h3><div class="evc bad" style="margin-top:8px"><div class="evc-e">⚠️</div><div><b>Esto no se puede deshacer.</b><div class="muted">Se borra <b>'+esc(x.name)+'</b> con sus grados, temario, calendario, evaluaciones, personal ('+(x.staff||0)+') y solicitudes. Los '+(x.students||0)+' alumnos conectados siguen en sus familias con sus datos personales, pero ya no estarán vinculados a este colegio y sus notas oficiales de aquí se borran.</div></div></div>'+
+    '<label for="psdc">Para confirmar, escribe el nombre del colegio: <b>'+esc(x.name)+'</b></label><input id="psdc" autocomplete="off">'+
+    '<div class="row" style="margin-top:16px"><button class="btn ghost" data-act="close" style="margin-left:auto">Cancelar</button><button class="btn danger" id="psdok">Eliminar para siempre</button></div>');
+  $('#psdok').onclick=function(){
+    if(nrm($('#psdc').value)!==nrm(x.name)){toast('El nombre no coincide.');$('#psdc').focus();return}
+    var b=this;b.disabled=true;
+    schAct('plat.del',{id:id,confirm:x.name}).then(function(){closeModal();toast('Colegio eliminado');if(!SAMPLE){PLAT=null;platLoad()}softRender()},function(){b.disabled=false});
+  };
 }
 
 /* ---------- Eventos ---------- */
