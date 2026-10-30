@@ -7,6 +7,145 @@ service cloud.firestore {
     function isMember(fid) { return signedIn() && exists(memberDoc(fid)); }
     function isParent(fid) { return isMember(fid) && get(memberDoc(fid)).data.role == 'parent'; }
     function family(fid) { return get(/databases/$(database)/documents/families/$(fid)).data; }
+    function roleIn(fid, uid) { return get(/databases/$(database)/documents/families/$(fid)/members/$(uid)).data.role; }
+    function isStudentOf(fid) { return isMember(fid) && get(memberDoc(fid)).data.role == 'student'; }
+    function str(v, lo, hi) { return v is string && v.size() >= lo && v.size() <= hi; }
+
+    // ---------- Grupos de estudio entre familias ----------
+    function groupPath(gid) { return /databases/$(database)/documents/studyGroups/$(gid); }
+    function groupOwner(gid) { return get(groupPath(gid)).data.ownerUid; }
+    function isGroupOwner(gid) { return signedIn() && exists(groupPath(gid)) && groupOwner(gid) == request.auth.uid; }
+    function isGroupMember(gid) { return signedIn() && exists(/databases/$(database)/documents/studyGroups/$(gid)/members/$(request.auth.uid)); }
+    function reqPath(gid, uid) { return /databases/$(database)/documents/studyGroups/$(gid)/requests/$(uid); }
+    function memberValid(d) {
+      return d.keys().hasOnly(['studentUid', 'familyId', 'displayName', 'avatar', 'grade', 'points', 'tasksDone', 'streak', 'studyMin7', 'week', 'joinedAt', 'updatedAt'])
+        && (!('week' in d) || str(d.week, 10, 10))
+        && str(d.displayName, 1, 40) && str(d.avatar, 0, 16) && str(d.grade, 0, 30) && d.familyId is string
+        && d.points is int && d.points >= 0 && d.points <= 1000000
+        && d.tasksDone is int && d.tasksDone >= 0 && d.tasksDone <= 100000
+        && d.streak is int && d.streak >= 0 && d.streak <= 3650
+        && d.studyMin7 is int && d.studyMin7 >= 0 && d.studyMin7 <= 10080;
+    }
+
+    // Código del grupo: se consulta uno por uno para pedir entrar; nunca se listan.
+    match /studyGroupCodes/{code} {
+      allow get: if signedIn();
+      allow list, update, delete: if false;
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['groupId', 'groupName', 'grade', 'ownerUid', 'createdAt'])
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.groupId is string
+        && exists(groupPath(request.resource.data.groupId))
+        && groupOwner(request.resource.data.groupId) == request.auth.uid
+        && get(groupPath(request.resource.data.groupId)).data.code == code
+        && str(request.resource.data.groupName, 1, 60) && str(request.resource.data.grade, 0, 30);
+    }
+
+    match /studyGroups/{gid} {
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['name', 'grade', 'code', 'ownerUid', 'ownerFamilyId', 'createdAt', 'status', 'challenge'])
+        && request.resource.data.ownerUid == request.auth.uid
+        && isStudentOf(request.resource.data.ownerFamilyId)
+        && str(request.resource.data.name, 1, 60) && str(request.resource.data.grade, 0, 30)
+        && str(request.resource.data.code, 7, 7) && request.resource.data.status == 'active';
+      allow get: if signedIn() && (resource.data.ownerUid == request.auth.uid || isGroupMember(gid));
+      allow list: if false;
+      allow update: if signedIn() && resource.data.ownerUid == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'grade', 'status', 'challenge'])
+        && str(request.resource.data.name, 1, 60) && str(request.resource.data.grade, 0, 30)
+        && (!('challenge' in request.resource.data) || str(request.resource.data.challenge, 0, 140));
+      allow delete: if signedIn() && resource.data.ownerUid == request.auth.uid;
+
+      // Solicitudes para entrar: 1) el estudiante pide, 2) su madre/padre autoriza, 3) el creador acepta.
+      match /requests/{uid} {
+        allow create: if signedIn() && uid == request.auth.uid
+          && exists(groupPath(gid))
+          && request.resource.data.keys().hasOnly(['studentUid', 'studentName', 'familyId', 'status', 'createdAt'])
+          && request.resource.data.studentUid == uid
+          && isStudentOf(request.resource.data.familyId)
+          && str(request.resource.data.studentName, 1, 40)
+          && request.resource.data.status == 'awaiting_parent';
+        allow get: if signedIn() && (uid == request.auth.uid || isGroupOwner(gid) || isParent(resource.data.familyId));
+        allow list: if isGroupOwner(gid);
+        allow update: if signedIn() && request.resource.data.studentUid == resource.data.studentUid
+          && request.resource.data.familyId == resource.data.familyId && (
+          // Madre/padre de esa familia: autoriza o rechaza, o retira el permiso en cualquier momento
+          (isParent(resource.data.familyId)
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'authorizedAt', 'rejectedAt', 'revokedAt'])
+            && ((resource.data.status == 'awaiting_parent' && request.resource.data.status in ['authorized', 'rejected'])
+                || request.resource.data.status == 'revoked'))
+          ||
+          // Creador del grupo: acepta o rechaza solo lo que ya autorizó la familia
+          (isGroupOwner(gid) && resource.data.status == 'authorized'
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'acceptedAt', 'rejectedAt'])
+            && request.resource.data.status in ['accepted', 'rejected'])
+        );
+        allow delete: if signedIn() && (uid == request.auth.uid || isGroupOwner(gid));
+      }
+
+      // Miembros: cada estudiante publica solo su resumen mínimo (nombre, avatar, puntos, tareas, racha, minutos).
+      match /members/{uid} {
+        allow get, list: if isGroupOwner(gid) || isGroupMember(gid);
+        allow create: if signedIn() && uid == request.auth.uid
+          && memberValid(request.resource.data)
+          && request.resource.data.studentUid == uid
+          && isStudentOf(request.resource.data.familyId)
+          && (isGroupOwner(gid) || (
+            exists(reqPath(gid, uid))
+            && get(reqPath(gid, uid)).data.status == 'accepted'
+            && get(reqPath(gid, uid)).data.familyId == request.resource.data.familyId));
+        allow update: if signedIn() && uid == request.auth.uid
+          && memberValid(request.resource.data)
+          && request.resource.data.studentUid == resource.data.studentUid
+          && request.resource.data.familyId == resource.data.familyId
+          && (isGroupOwner(gid) || get(reqPath(gid, uid)).data.status == 'accepted');
+        allow delete: if signedIn() && (uid == request.auth.uid || isGroupOwner(gid) || isParent(resource.data.familyId));
+      }
+    }
+
+    // ---------- Colegios ----------
+    // Todo lo del colegio lo escribe solo el servidor (función "school"); aquí solo se decide quién puede leer.
+    function isPlatform() { return signedIn() && request.auth.token.email == 'msalinas8811@gmail.com' && request.auth.token.email_verified == true; }
+    function staffIdx(sid) { return /databases/$(database)/documents/schools/$(sid)/staffUids/$(request.auth.uid); }
+    function isStaff(sid) { return signedIn() && exists(staffIdx(sid)); }
+    function isSchoolAdmin(sid) { return isStaff(sid) && get(staffIdx(sid)).data.role in ['admin', 'director']; }
+    function isNurse(sid) { return isStaff(sid) && get(staffIdx(sid)).data.role == 'nurse'; }
+    function myFam() { return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.familyId; }
+    function famAcc(sid) { return /databases/$(database)/documents/schools/$(sid)/famAccess/$(myFam()); }
+    function isSchoolFamily(sid) { return signedIn() && isMember(myFam()) && exists(famAcc(sid)); }
+    function famHasGrade(sid, gid) { return isSchoolFamily(sid) && get(famAcc(sid)).data.grades[gid] == true; }
+
+    match /schools/{sid} {
+      allow read: if isStaff(sid) || isSchoolFamily(sid) || isPlatform();
+      allow write: if false;
+      match /grades/{gid} {
+        allow read: if isStaff(sid) || famHasGrade(sid, gid);
+        allow write: if false;
+        match /events/{eid} {
+          allow read: if isStaff(sid) || famHasGrade(sid, gid);
+          allow write: if false;
+        }
+      }
+      match /staff/{id} { allow read: if isStaff(sid); allow write: if false; }
+      match /staffUids/{uid} { allow read: if signedIn() && uid == request.auth.uid; allow write: if false; }
+      match /members/{uid} { allow read: if isStaff(sid) || (signedIn() && uid == request.auth.uid); allow write: if false; }
+      match /reqs/{uid} { allow read: if isSchoolAdmin(sid) || (signedIn() && uid == request.auth.uid); allow write: if false; }
+      match /famAccess/{fid} { allow read: if isSchoolAdmin(sid); allow write: if false; }
+      match /nurse/{id} { allow read: if isSchoolAdmin(sid) || isNurse(sid); allow write: if false; }
+      // Resumen escolar de cada alumno (solo lo del colegio). Lo escribe el propio alumno aprobado; lo lee el personal.
+      match /perf/{uid} {
+        allow read: if isStaff(sid);
+        allow write: if signedIn() && uid == request.auth.uid
+          && exists(/databases/$(database)/documents/schools/$(sid)/members/$(uid))
+          && request.resource.data.keys().hasOnly(['gradeId', 'name', 'updatedAt', 'subs', 'tot'])
+          && request.resource.data.gradeId == get(/databases/$(database)/documents/schools/$(sid)/members/$(uid)).data.gradeId
+          && request.resource.data.subs is map && request.resource.data.tot is map && str(request.resource.data.name, 0, 60);
+      }
+      match /usage/{id} { allow read, write: if false; }
+    }
+    match /schoolCodes/{code} { allow read, write: if false; }
+    match /staffInvites/{id} { allow read, write: if false; }
+    match /schoolsAdmin/{id} { allow read, write: if false; }
 
     // Perfil de cada cuenta: solo su dueño
     match /users/{uid} {
@@ -18,6 +157,23 @@ service cloud.firestore {
       allow get: if signedIn();
       allow create: if signedIn() && request.resource.data.owner == request.auth.uid;
       allow list, update, delete: if false;
+    }
+
+    // Links de pago y precios: los lee cualquier cuenta; los cambia solo el panel de administrador
+    match /public/{docId} {
+      allow read: if signedIn();
+      allow write: if false;
+    }
+
+    // Avisos de pago ("Ya pagué"): los crea madre o padre de su familia; los revisa el administrador
+    match /payReqs/{id} {
+      allow create: if signedIn()
+        && request.resource.data.uid == request.auth.uid
+        && isParent(request.resource.data.familyId)
+        && request.resource.data.status == 'pending'
+        && request.resource.data.keys().hasOnly(['uid', 'familyId', 'status', 'cycle', 'method', 'ref', 'name', 'at']);
+      allow read: if signedIn() && resource.data.uid == request.auth.uid;
+      allow update, delete: if false;
     }
 
     match /families/{fid} {
@@ -43,6 +199,130 @@ service cloud.firestore {
         allow write: if isMember(fid) && sid == request.auth.uid;
       }
 
+      // Tipos de actividades: los administra madre/padre para toda la familia
+      match /activityTypes/{id} {
+        allow read: if isMember(fid);
+        allow create, update: if isParent(fid)
+          && request.resource.data.keys().hasOnly(['name', 'active', 'createdBy', 'createdAt', 'updatedAt'])
+          && str(request.resource.data.name, 1, 40)
+          && request.resource.data.createdBy is string;
+        allow delete: if isParent(fid);
+      }
+
+      // Actividades que madre/padre asigna a un estudiante de la familia.
+      // El estudiante solo marca si la terminó.
+      match /assignedTasks/{id} {
+        allow read: if isMember(fid);
+        allow create, update: if isParent(fid)
+          && str(request.resource.data.title, 1, 120)
+          && request.resource.data.student is string
+          && roleIn(fid, request.resource.data.student) == 'student'
+          && str(request.resource.data.due, 10, 10)
+          && request.resource.data.prio in ['alta', 'media', 'baja']
+          && (!('note' in request.resource.data) || str(request.resource.data.note, 0, 1000))
+          && (!('reminders' in request.resource.data) || (request.resource.data.reminders is list && request.resource.data.reminders.size() <= 10));
+        allow update: if isMember(fid)
+          && resource.data.student == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['done', 'doneAt', 'updatedAt'])
+          && request.resource.data.done is bool;
+        allow delete: if isParent(fid);
+      }
+
+      // Compañeros de estudio dentro de la misma familia: el invitado acepta o rechaza
+      match /studyPeers/{id} {
+        allow read: if isMember(fid);
+        allow create: if isStudentOf(fid)
+          && request.resource.data.from == request.auth.uid
+          && request.resource.data.to is string && request.resource.data.to != request.auth.uid
+          && roleIn(fid, request.resource.data.to) == 'student'
+          && request.resource.data.status == 'pending';
+        allow update: if isMember(fid)
+          && resource.data.to == request.auth.uid && resource.data.status == 'pending'
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'acceptedAt', 'rejectedAt'])
+          && request.resource.data.status in ['accepted', 'rejected'];
+        allow delete: if isMember(fid) && (resource.data.from == request.auth.uid || resource.data.to == request.auth.uid || isParent(fid));
+      }
+
+      // Bandeja de autorizaciones de grupos para madre/padre
+      match /groupApprovals/{approvalId} {
+        allow read: if isParent(fid) || (isMember(fid) && resource.data.studentUid == request.auth.uid);
+        allow create: if isStudentOf(fid)
+          && request.resource.data.keys().hasOnly(['groupId', 'groupName', 'code', 'studentUid', 'studentName', 'familyId', 'status', 'createdAt'])
+          && request.resource.data.studentUid == request.auth.uid
+          && request.resource.data.familyId == fid
+          && request.resource.data.status == 'pending'
+          && str(request.resource.data.groupName, 1, 60) && str(request.resource.data.studentName, 1, 40);
+        allow update: if isParent(fid)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'authorizedBy', 'authorizedAt', 'revokedAt'])
+          && ((resource.data.status == 'pending' && request.resource.data.status in ['authorized', 'rejected'])
+              || (resource.data.status == 'authorized' && request.resource.data.status == 'revoked'));
+        allow delete: if isParent(fid);
+      }
+
+      // Tareas de la casa: las crea madre/padre; el estudiante solo marca los días que las hizo
+      match /chores/{id} {
+        allow read: if isMember(fid);
+        allow create, update: if isParent(fid)
+          && str(request.resource.data.title, 1, 60)
+          && request.resource.data.student is string
+          && roleIn(fid, request.resource.data.student) == 'student'
+          && request.resource.data.days is list && request.resource.data.days.size() >= 1 && request.resource.data.days.size() <= 7
+          && (!('time' in request.resource.data) || str(request.resource.data.time, 0, 5))
+          && (!('icon' in request.resource.data) || str(request.resource.data.icon, 0, 16))
+          && (!('done' in request.resource.data) || request.resource.data.done is map);
+        allow update: if isMember(fid)
+          && resource.data.student == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['done'])
+          && request.resource.data.done is map && request.resource.data.done.size() <= 60;
+        allow delete: if isParent(fid);
+      }
+
+      // Evaluación diaria de las tareas de la casa: la da madre/padre; la familia la lee
+      match /choreEvals/{id} {
+        allow read: if isMember(fid);
+        allow create, update: if isParent(fid)
+          && request.resource.data.student is string
+          && roleIn(fid, request.resource.data.student) == 'student'
+          && str(request.resource.data.date, 10, 10)
+          && request.resource.data.status in ['excelente', 'muybien', 'porpoco', 'mejorar', 'apoyo']
+          && request.resource.data.points is int && request.resource.data.points >= 0 && request.resource.data.points <= 10000
+          && (!('comment' in request.resource.data) || str(request.resource.data.comment, 0, 300));
+        allow delete: if isParent(fid);
+      }
+
+      // Evidencia de actividades (nota y foto): la sube el estudiante; la familia la ve
+      match /evidence/{id} {
+        allow read: if isMember(fid);
+        allow create, update: if isStudentOf(fid) && id.matches(request.auth.uid + '_.*')
+          && request.resource.data.keys().hasOnly(['student', 'taskId', 'note', 'hasImg', 'at'])
+          && request.resource.data.student == request.auth.uid
+          && str(request.resource.data.note, 0, 300) && request.resource.data.hasImg is bool;
+        allow delete: if isParent(fid) || (isMember(fid) && resource.data.student == request.auth.uid);
+      }
+      match /evidenceImg/{id} {
+        allow read: if isMember(fid);
+        allow create, update: if isStudentOf(fid) && id.matches(request.auth.uid + '_.*')
+          && request.resource.data.keys().hasOnly(['student', 'taskId', 'img'])
+          && request.resource.data.student == request.auth.uid
+          && request.resource.data.img is string && request.resource.data.img.size() <= 900000
+          && request.resource.data.img.matches('data:image/jpeg;base64,.*');
+        allow delete: if isParent(fid) || (isMember(fid) && resource.data.student == request.auth.uid);
+      }
+      // Revisión de la familia: solo madre o padre
+      match /famChecks/{id} {
+        allow read: if isMember(fid);
+        allow create, update: if isParent(fid)
+          && request.resource.data.keys().hasOnly(['student', 'taskId', 'title', 'fam', 'at'])
+          && roleIn(fid, request.resource.data.student) == 'student'
+          && request.resource.data.fam in ['ok', 'no'] && str(request.resource.data.title, 0, 120);
+        allow delete: if isParent(fid);
+      }
+      // Respuesta del docente: solo la escribe el servidor (link sin cuenta)
+      match /teacherChecks/{id} {
+        allow read: if isMember(fid);
+        allow write: if false;
+      }
+
       // Mensajes entre familia y estudiante
       match /notes/{id} {
         allow read, create, update: if isMember(fid);
@@ -57,10 +337,29 @@ service cloud.firestore {
           (isMember(fid) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['achievedAt']));
       }
 
-      // Configuración (PIN) y plan: solo madre o padre
+      // Configuración (PIN): solo madre o padre. El plan lo cambia solo el servidor (pago o panel de administrador).
       match /meta/{docId} {
         allow read: if isMember(fid);
-        allow write: if isParent(fid);
+        allow write: if isParent(fid) && !(docId in ['plan', 'school']);
+      }
+
+      // Cambios de la familia a las actividades del estudiante (agregar, corregir, borrar, recordatorios).
+      // Los crea madre o padre; el celular del estudiante los aplica y los borra.
+      match /taskOps/{id} {
+        allow read: if isMember(fid);
+        allow create: if isParent(fid)
+          && request.resource.data.keys().hasOnly(['op', 'student', 'taskId', 'task', 'reminders', 'byName', 'at'])
+          && request.resource.data.op in ['add', 'edit', 'del', 'rem']
+          && request.resource.data.student is string && roleIn(fid, request.resource.data.student) == 'student'
+          && str(request.resource.data.byName, 0, 40);
+        allow delete: if isParent(fid) || (isMember(fid) && resource.data.student == request.auth.uid);
+        allow update: if false;
+      }
+
+      // Avisos del colegio para la familia (enfermería): solo los escribe el servidor
+      match /schoolNotes/{id} {
+        allow read: if isMember(fid);
+        allow write: if false;
       }
 
       // Contadores de uso de IA: solo los escribe el servidor
