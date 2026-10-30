@@ -267,3 +267,28 @@ Solo para tu cuenta: ⚙️ → **Cambiar de panel** → **Plataforma StudyFlow*
 - La docente, en «Mis materias», ve el temario por trimestre. Con «📅 Fechas» pone la fecha de cada tema de una unidad (o las reparte automáticamente) y la app calcula del primer al último tema cuánto dura la unidad. Puede poner la misma fecha en sus otras secciones.
 - Al asignar una actividad (tarea, examen, laboratorio, revisión de cuaderno, exposición…), la liga a un tema y puede programar recordatorios para los alumnos (el mismo día, 1, 2, 3 días o 1 semana antes, a la hora que elija).
 - Alumnos y familias ven en qué trimestre están, las unidades con sus temas y la unidad en curso de cada materia, con sus actividades. El alumno recibe los recordatorios de la docente («Tu docente te recuerda…»).
+
+## Colegio, grado y docente guía en la app de la familia
+- Arriba, en el inicio del estudiante y de la familia, aparece el grado, el colegio y el docente guía.
+- Cada botón de materia muestra el docente que la da.
+- La familia ve en «Resumen» la tarjeta del colegio con el docente guía y sus botones de correo, llamada y WhatsApp (los datos salen de «Personal»: correo y teléfono del docente). El docente guía se asigna en «Grados» › editar grado.
+- La familia también tiene los botones grandes de materias: al tocar una ve su calendario, actividades (puede asignar una nueva), temario por trimestre y notas.
+
+## Varios encargados en una familia (mamá, papá, abuelos…)
+- Quien crea la familia elige qué es del estudiante (Mamá, Papá, Abuela, Encargado…).
+- Para que entre otro encargado: ⚙️ → «👨‍👩‍👧 Encargados» (o la tarjeta «¿Alguien más apoya…?» en Resumen) → copiar el código o «Enviar por WhatsApp».
+- La otra persona crea su cuenta y elige «Me invitaron a una familia», escribe el código y su parentesco.
+- Todos los encargados ven lo mismo. Cada actividad, recordatorio o revisión queda con el nombre y parentesco de quien lo hizo, por ejemplo «Laura (mamá)».
+- Cada encargado puede cambiar su parentesco. Quien creó la familia puede quitar a un encargado.
+
+## ¿Quién carga el temario? (colegio o docente) y link de la familia a la docente
+- En el panel del colegio › Temario, abajo: «¿Quién carga el temario?» → 🏫 El colegio (como antes) o 🧑‍🏫 Cada docente.
+- Con «Cada docente», la docente ve en «Mis materias» los botones «+ Unidad», «Cargar temario», ✏️ para editar unidades y «Editar tema». Solo puede cambiar las materias que tiene asignadas en «Grados». El colegio también puede seguir cargándolo.
+- La familia, en una materia › Temario o Actividades, toca «📨 Pedir a la docente». Se crea un link (sirve 30 días) que se envía por WhatsApp.
+- La docente abre el link sin cuenta, pega o sube el temario (trimestres, unidades y temas) y agrega actividades con su fecha (tarea, examen, laboratorio…). Al enviar, le aparece al estudiante en su app con el nombre de la docente. Puede usar el mismo link varias veces.
+
+## Eliminar a un estudiante de la familia
+- ⚙️ → «👨‍👩‍👧 Mi familia» → en «Estudiantes», «Eliminar». Solo quien creó la familia puede hacerlo.
+- Hay que escribir el nombre del estudiante para confirmar.
+- Se borran de la familia sus tareas, notas, temario, evidencias, mensajes y premios; deja de estar en su colegio y la familia pierde ese acceso si no tiene más hijos ahí.
+- La cuenta del estudiante no se borra: al abrir la app vuelve a la bienvenida y puede unirse a otra familia con un código.

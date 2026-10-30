@@ -189,7 +189,8 @@ service cloud.firestore {
           (request.resource.data.role == 'parent' && family(fid).owner == request.auth.uid) ||
           (request.resource.data.code == family(fid).code && request.resource.data.role in ['student', 'parent'])
         );
-        allow update: if false;
+        // Cada encargado puede cambiar solo su nombre y su parentesco (mamá, papá, abuela…)
+        allow update: if signedIn() && uid == request.auth.uid && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['rel', 'name']);
         allow delete: if isParent(fid);
       }
 

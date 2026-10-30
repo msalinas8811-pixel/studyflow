@@ -342,6 +342,111 @@ exports.teacherReq = onCall({timeoutSeconds: 30, memory: '256MiB', maxInstances:
   return {token, expiresAt: now + LINK_DAYS * DAY};
 });
 
+// ---------- La familia pide a la docente el temario y las actividades de una materia (link sin cuenta) ----------
+const TL_DAYS = 30;
+const TL_TYPES = ['Tarea', 'Examen', 'Proyecto', 'Actividad', 'Lectura', 'Laboratorio', 'Revisión de cuaderno', 'Exposición'];
+async function loadTL(token) {
+  if (!TOKEN_RE.test(String(token || ''))) throw new HttpsError('not-found', 'link');
+  const ref = db.doc(`temLinks/${token}`);
+  const snap = await ref.get();
+  if (!snap.exists) throw new HttpsError('not-found', 'link');
+  const r = snap.data();
+  if (r.expiresAt < Date.now()) throw new HttpsError('failed-precondition', 'expired');
+  return {ref, r};
+}
+exports.temLink = onCall({timeoutSeconds: 30, memory: '256MiB', maxInstances: 10}, async (req) => {
+  const d = req.data || {}, action = str(d.action, 20), now = Date.now();
+  if (action === 'create') {
+    if (!req.auth) throw new HttpsError('unauthenticated', 'Inicia sesión');
+    const uid = req.auth.uid;
+    const user = (await db.doc(`users/${uid}`).get()).data();
+    if (!user || !user.familyId) throw new HttpsError('failed-precondition', 'sin familia');
+    const fid = user.familyId;
+    const me = await db.doc(`families/${fid}/members/${uid}`).get();
+    if (!me.exists || me.data().role !== 'parent') throw new HttpsError('permission-denied', 'solo encargados');
+    const sidS = str(d.studentId, 60), subjectId = str(d.subjectId, 60), subject = str(d.subject, 60);
+    if (!sidS || !subjectId || !subject) throw new HttpsError('invalid-argument', 'datos');
+    const st = await db.doc(`families/${fid}/members/${sidS}`).get();
+    if (!st.exists || st.data().role !== 'student') throw new HttpsError('invalid-argument', 'estudiante');
+    const cref = db.doc(`families/${fid}/usage/tlink_${new Date().toISOString().slice(0, 10)}`);
+    await db.runTransaction(async (t) => {
+      const c = await t.get(cref);
+      const n = c.exists ? c.data().n || 0 : 0;
+      if (n >= 20) throw new HttpsError('resource-exhausted', 'limit');
+      t.set(cref, {n: n + 1, at: now}, {merge: true});
+    });
+    const token = crypto.randomBytes(24).toString('base64url');
+    await db.doc(`temLinks/${token}`).set({familyId: fid, studentId: sidS, studentName: str(st.data().name, 40).split(' ')[0] || 'Estudiante',
+      subjectId, subject, teacherName: str(d.teacherName, 60), askedBy: str(d.askedBy, 60), createdBy: uid, createdAt: now, expiresAt: now + TL_DAYS * DAY, topicsN: 0, tasksN: 0, sends: 0});
+    return {token, expiresAt: now + TL_DAYS * DAY};
+  }
+  const {ref, r} = await loadTL(d.token);
+  if (action === 'get') {
+    return {studentName: r.studentName, subject: r.subject, teacherName: r.teacherName, askedBy: r.askedBy || '', expiresAt: r.expiresAt, topicsN: r.topicsN || 0, tasksN: r.tasksN || 0, lastAt: r.lastAt || 0};
+  }
+  if (action === 'submit') {
+    if ((r.sends || 0) >= 30) throw new HttpsError('resource-exhausted', 'limit');
+    const teacherName = str(d.teacherName, 60) || r.teacherName || 'Docente';
+    const topics = (Array.isArray(d.topics) ? d.topics : []).slice(0, 200).map((x, i) => Object.assign({title: str(x && x.title, 120), date: x && isDate(x.date) ? x.date : ''}, temaFields(x))).filter((x) => x.title);
+    const tasks = (Array.isArray(d.tasks) ? d.tasks : []).slice(0, 60).map((x) => ({title: str(x && x.title, 120), type: TL_TYPES.includes(x && x.type) ? x.type : 'Tarea',
+      due: x && isDate(x.due) ? x.due : '', time: x && isTime(x.time) ? x.time || '' : '', note: str(x && x.note, 300), topicTitle: str(x && x.topicTitle, 120)})).filter((x) => x.title && x.due);
+    if (!topics.length && !tasks.length) throw new HttpsError('invalid-argument', 'vacio');
+    await db.collection(`families/${r.familyId}/taskOps`).add({op: 'tlink', student: r.studentId, subject: r.subjectId, byName: teacherName.slice(0, 40), topics, tasks, at: now});
+    await ref.set({teacherName, topicsN: FieldValue.increment(topics.length), tasksN: FieldValue.increment(tasks.length), sends: FieldValue.increment(1), lastAt: now}, {merge: true});
+    return {topics: topics.length, tasks: tasks.length};
+  }
+  throw new HttpsError('invalid-argument', 'accion');
+});
+
+// ---------- Familia: quien creó la familia elimina a un estudiante y todos sus datos de la familia ----------
+const FAM_STUDENT_COLS = ['taskOps', 'assignedTasks', 'chores', 'choreEvals', 'evidence', 'famChecks', 'teacherChecks', 'notes', 'rewards', 'studyPeers', 'groupApprovals'];
+exports.famAdmin = onCall({timeoutSeconds: 60, memory: '256MiB', maxInstances: 10}, async (req) => {
+  if (!req.auth) throw new HttpsError('unauthenticated', 'Inicia sesión');
+  const uid = req.auth.uid, d = req.data || {}, action = str(d.action, 30);
+  const user = (await db.doc(`users/${uid}`).get()).data();
+  if (!user || !user.familyId) throw new HttpsError('failed-precondition', 'sin familia');
+  const fid = user.familyId;
+  const fam = await db.doc(`families/${fid}`).get();
+  if (!fam.exists) throw new HttpsError('not-found', 'familia');
+  if (action === 'removeStudent') {
+    if (fam.data().owner !== uid) throw new HttpsError('permission-denied', 'owner');
+    const sidS = str(d.studentId, 128);
+    const m = await db.doc(`families/${fid}/members/${sidS}`).get();
+    if (!m.exists || m.data().role !== 'student') throw new HttpsError('not-found', 'estudiante');
+    let n = 0;
+    // Datos del estudiante dentro de la familia
+    for (const col of FAM_STUDENT_COLS) {
+      const q = await db.collection(`families/${fid}/${col}`).get();
+      const batch = db.batch();
+      let k = 0;
+      q.docs.forEach((x) => {
+        const v = x.data() || {};
+        if (v.student === sidS || v.to === sidS || v.studentUid === sidS || v.sid === sidS || x.id.indexOf(sidS + '_') === 0) { batch.delete(x.ref); k++; }
+      });
+      if (k) { await batch.commit(); n += k; }
+    }
+    await db.doc(`families/${fid}/students/${sidS}`).delete();
+    // Links a docentes que eran para este estudiante
+    const tl = await db.collection('temLinks').where('familyId', '==', fid).get();
+    for (const x of tl.docs) if (x.data().studentId === sidS) await x.ref.delete();
+    // Colegio: deja de estar en el grado y la familia pierde el acceso si ya no tiene más hijos ahí
+    const su = await db.doc(`users/${sidS}`).get();
+    const link = su.exists ? su.data().school : null;
+    if (link && link.schoolId) {
+      const sc = link.schoolId;
+      await db.doc(`schools/${sc}/members/${sidS}`).delete();
+      await db.doc(`schools/${sc}/reqs/${sidS}`).delete();
+      await db.doc(`schools/${sc}/perf/${sidS}`).delete();
+      await syncFamAccess(sc, fid);
+    }
+    // Su cuenta queda libre: al abrir la app podrá unirse a otra familia
+    if (su.exists && su.data().familyId === fid) await su.ref.set({familyId: FieldValue.delete(), school: FieldValue.delete()}, {merge: true});
+    await m.ref.delete();
+    return {ok: true, docs: n};
+  }
+  throw new HttpsError('invalid-argument', 'accion');
+});
+
 async function loadReq(token) {
   if (!TOKEN_RE.test(String(token || ''))) throw new HttpsError('not-found', 'link');
   const ref = db.doc(`teacherReqs/${token}`);
@@ -433,6 +538,7 @@ function cleanSubjects(list, teachers) {
       color: /^#[0-9a-fA-F]{6}$/.test(String(x.color || '')) ? x.color : COLORS[i % COLORS.length], teacherId: t ? tid : '', teacherName: t ? t.name : ''};
   }).filter(Boolean);
 }
+function tutorOf(t) { return t ? {name: str(t.name, 60), email: str(t.email, 80), phone: str(t.phone, 20)} : {name: '', email: '', phone: ''}; }
 async function teachersOf(sid) {
   const q = await db.collection(`schools/${sid}/staff`).where('role', '==', 'teacher').get();
   const out = {};
@@ -753,7 +859,8 @@ exports.school = onCall({timeoutSeconds: 120, memory: '512MiB', maxInstances: 10
     if (gid && !(await ref.get()).exists) fail('not-found');
     const subjects = cleanSubjects(data.subjects || [], teachers);
     const tutorId = teachers[str(data.tutorId, 40)] ? str(data.tutorId, 40) : '';
-    await ref.set({name, section: str(data.section, 10), order: LEVELS.includes(name) ? LEVELS.indexOf(name) : 99, subjects, tutorId}, {merge: true});
+    // Datos del docente guía para las familias (no leen la lista de personal)
+    await ref.set({name, section: str(data.section, 10), order: LEVELS.includes(name) ? LEVELS.indexOf(name) : 99, subjects, tutorId, tutor: tutorOf(teachers[tutorId])}, {merge: true});
     // Los docentes con materias en este grado quedan asignados al grado
     const batch = db.batch();
     Object.keys(teachers).forEach((tid) => {
@@ -810,13 +917,15 @@ exports.school = onCall({timeoutSeconds: 120, memory: '512MiB', maxInstances: 10
     if (access !== 'active') o.uid = FieldValue.delete();
     await ref.set(o, {merge: true});
     if (access === 'active' && prev.uid) await db.doc(`schools/${sid}/staffUids/${prev.uid}`).set({staffId: ref.id, role, at: now});
-    // Nombre del docente en las materias (los alumnos no leen la lista de personal)
-    if (role === 'teacher' && prev.name !== name) {
+    // Nombre del docente en las materias y datos del docente guía (los alumnos no leen la lista de personal)
+    if (role === 'teacher' && (prev.name !== name || prev.email !== em || (prev.phone || '') !== o.phone)) {
       const b2 = db.batch();
       let n = 0;
       gq.docs.forEach((d) => {
-        const subs = d.data().subjects || [];
-        if (subs.some((x) => x.teacherId === ref.id)) { b2.set(d.ref, {subjects: subs.map((x) => x.teacherId === ref.id ? Object.assign({}, x, {teacherName: name}) : x)}, {merge: true}); n++; }
+        const subs = d.data().subjects || [], up = {};
+        if (subs.some((x) => x.teacherId === ref.id)) up.subjects = subs.map((x) => x.teacherId === ref.id ? Object.assign({}, x, {teacherName: name}) : x);
+        if (d.data().tutorId === ref.id) up.tutor = tutorOf(o);
+        if (Object.keys(up).length) { b2.set(d.ref, up, {merge: true}); n++; }
       });
       if (n) await b2.commit();
     }
@@ -865,7 +974,7 @@ exports.school = onCall({timeoutSeconds: 120, memory: '512MiB', maxInstances: 10
     gq.docs.forEach((d) => {
       const subs = d.data().subjects || [];
       if (subs.some((x) => x.teacherId === id) || d.data().tutorId === id) {
-        batch.set(d.ref, {subjects: subs.map((x) => x.teacherId === id ? Object.assign({}, x, {teacherId: '', teacherName: ''}) : x), tutorId: d.data().tutorId === id ? '' : d.data().tutorId || ''}, {merge: true});
+        batch.set(d.ref, {subjects: subs.map((x) => x.teacherId === id ? Object.assign({}, x, {teacherId: '', teacherName: ''}) : x), tutorId: d.data().tutorId === id ? '' : d.data().tutorId || '', tutor: d.data().tutorId === id ? tutorOf(null) : (d.data().tutor || tutorOf(null))}, {merge: true});
       }
     });
     batch.delete(ref);
@@ -931,16 +1040,23 @@ exports.school = onCall({timeoutSeconds: 120, memory: '512MiB', maxInstances: 10
     return {};
   }
   // Temario completo: muchos temas de una materia y grado en una sola vez
+  // ¿Puede cargar o cambiar temas? La administración siempre; la docente solo si el colegio lo permite y da esa materia
+  const canTem = (g, subjectId) => isAdmin || (ctx.role === 'teacher' && (ctx.school || {}).temarioBy === 'teacher' &&
+    (ctx.staff.grades || []).includes(g.id) && (g.data().subjects || []).some((x) => x.id === subjectId && x.teacherId === ctx.staffId));
   if (action === 'ev.bulk') {
     const gid = str(data.gradeId, 60);
-    // El temario lo carga la administración (una vez para todas las secciones)
-    if (!isAdmin) fail('forbidden');
+    if (!isAdmin && ctx.role !== 'teacher') fail('forbidden');
     const g = await db.doc(`schools/${sid}/grades/${gid}`).get();
     if (!g.exists) fail('not-found');
     const subjectId = str(data.subjectId, 40);
-    if (!(g.data().subjects || []).some((x) => x.id === subjectId)) fail('invalid');
-    const items = (Array.isArray(data.items) ? data.items : []).slice(0, 200).map((x) => Object.assign({title: str(x && x.title, 120), date: x && isDate(x.date) ? x.date : ''}, temaFields(x))).filter((x) => x.title);
-    if (!items.length) fail('invalid');
+    if (!(g.data().subjects || []).some((x) => x.id === subjectId)) {
+      console.warn('ev.bulk materia', {sid, gid, subjectId, materias: (g.data().subjects || []).map((x) => x.id + ':' + x.name)});
+      fail('invalid-subject');
+    }
+    if (!canTem(g, subjectId)) fail('forbidden');
+    const raw = Array.isArray(data.items) ? data.items : [];
+    const items = raw.slice(0, 200).map((x) => Object.assign({title: str(x && x.title, 120), date: x && isDate(x.date) ? x.date : ''}, temaFields(x))).filter((x) => x.title);
+    if (!items.length) { console.warn('ev.bulk temas', {sid, gid, n: raw.length, ejemplo: JSON.stringify(raw.slice(0, 2)).slice(0, 300)}); fail('invalid-items'); }
     const batch = db.batch();
     items.forEach((x) => batch.set(db.collection(`schools/${sid}/grades/${gid}/events`).doc(), Object.assign({type: 'tema', typeName: '', typeEmoji: '', subjectId, time: '', note: '', by: ctx.staffId, byName: ctx.staff.name || '', at: now}, x)));
     await batch.commit();
@@ -954,12 +1070,12 @@ exports.school = onCall({timeoutSeconds: 120, memory: '512MiB', maxInstances: 10
     const eid = str(data.id, 60);
     const ref = eid ? db.doc(`schools/${sid}/grades/${gid}/events/${eid}`) : db.collection(`schools/${sid}/grades/${gid}/events`).doc();
     const cur = eid ? await ref.get() : null;
-    // La docente no crea, cambia ni borra temas del temario
-    if (!isAdmin && cur && cur.exists && cur.data().type === 'tema') fail('forbidden');
+    // La docente no crea, cambia ni borra temas del temario (salvo que el colegio se lo permita)
+    if (!isAdmin && cur && cur.exists && cur.data().type === 'tema' && !canTem(g, cur.data().subjectId)) fail('forbidden');
     if (action === 'ev.del') { await ref.delete(); return {}; }
     if (eid && !cur.exists) fail('not-found');
     const type = EV_TYPES.includes(data.type) ? data.type : '';
-    if (type === 'tema' && !isAdmin) fail('forbidden');
+    if (type === 'tema' && !canTem(g, str(data.subjectId, 40))) fail('forbidden');
     const title = str(data.title, 120);
     const subjectId = str(data.subjectId, 40);
     if (!type || !title || !(isDate(data.date) || (type === 'tema' && !data.date)) || !isTime(data.time || '')) fail('invalid');
@@ -1004,6 +1120,7 @@ exports.school = onCall({timeoutSeconds: 120, memory: '512MiB', maxInstances: 10
     const o = {};
     if (data.cur != null) o.curTri = int(data.cur, 1, 4);
     if (data.n != null) o.nTri = int(data.n, 3, 4);
+    if (data.by != null) o.temarioBy = data.by === 'teacher' ? 'teacher' : 'school';
     if (!Object.keys(o).length) fail('invalid');
     await db.doc(`schools/${sid}`).set(o, {merge: true});
     return {};
