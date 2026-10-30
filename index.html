@@ -1103,7 +1103,9 @@ function schGradeSubs(){
 function schoolFamilyHook(p){
   schReset();
   if(!F().root||!AUTH.user)return;
-  if(MODE==='student')unsubs.push(F().root.doc('users/'+AUTH.user.uid).onSnapshot(function(d){stuLinkSync(d.exists?d.data().school:null)},function(){}));
+  if(MODE==='student')unsubs.push(F().root.doc('users/'+AUTH.user.uid).onSnapshot(function(d){var u=d.exists?d.data():null;
+    if(u&&!u.familyId&&AUTH.prof&&AUTH.prof.familyId){AUTH.prof=u;unsubAll();DB=null;MODE='';toast('Ya no eres parte de esa familia. Puedes unirte a otra con un código.');pickPanel(u);return}
+    stuLinkSync(u?u.school:null)},function(){}));
   TOPS=[];
   unsubs.push(DB.collection('taskOps').onSnapshot(function(q){
     var l=q.docs.map(function(d){return Object.assign({id:d.id},d.data())});
@@ -1201,11 +1203,11 @@ function famInviteText(){var c=AUTH.fam&&AUTH.fam.code||'';return 'Te invito a l
 function famMembersModal(){
   famMembersLoad(false);
   var me=AUTH.user&&AUTH.user.uid,owner=AUTH.fam&&AUTH.fam.owner,code=AUTH.fam&&AUTH.fam.code||'',ps=famParents(),ss=(FAMM.list||[]).filter(function(m){return m.role==='student'});
-  openModal('<div id="famm"></div><h3>👨‍👩‍👧 Encargados de la familia</h3><p class="muted" style="margin:0">Todos ven lo mismo: avance, actividades, temario, notas y avisos del colegio. Cada actividad, recordatorio o revisión queda con el nombre de quien lo hizo.</p>'+
+  openModal('<div id="famm"></div><h3>👨‍👩‍👧 Mi familia</h3><p class="muted" style="margin:0">Todos ven lo mismo: avance, actividades, temario, notas y avisos del colegio. Cada actividad, recordatorio o revisión queda con el nombre de quien lo hizo.</p>'+
     (FAMM.list?'<div class="group">Encargados · '+ps.length+'</div>'+ps.map(function(m){var mine=m.id===me;
       return '<div class="item"><span class="ava lg" style="font-size:22px">'+(m.rel==='Papá'||m.rel==='Abuelo'||m.rel==='Tío'||m.rel==='Hermano mayor'||m.rel==='Encargado'?'👨':'👩')+'</span><div class="grow"><div class="title">'+esc(m.name||'Sin nombre')+(mine?' (tú)':'')+'</div><div class="muted">'+esc(m.rel||'Encargado/a')+(m.id===owner?' · creó la familia':'')+'</div></div>'+
         (mine?'<button class="btn ghost small" data-act="sc-fm-rel">Cambiar</button>':(me===owner?'<button class="btn danger small" data-act="sc-fm-del" data-id="'+esc(m.id)+'">Quitar</button>':''))+'</div>'}).join('')+
-      (ss.length?'<div class="group">Estudiantes</div>'+ss.map(function(m){return '<div class="item"><span class="ava lg" style="font-size:22px">🧑‍🎓</span><div class="grow"><div class="title">'+esc(m.name||'')+'</div></div></div>'}).join(''):'')
+      (ss.length?'<div class="group">Estudiantes · '+ss.length+'</div>'+ss.map(function(m){return '<div class="item"><span class="ava lg" style="font-size:22px">🧑‍🎓</span><div class="grow"><div class="title">'+esc(m.name||'')+'</div></div>'+(me===owner?'<button class="btn danger small" data-act="sc-fm-sdel" data-id="'+esc(m.id)+'">Eliminar</button>':'')+'</div>'}).join('')+(me!==owner?'<p class="muted" style="font-size:12.5px;margin:6px 0 0">Solo quien creó la familia puede eliminar estudiantes.</p>':''):'')
      :'<div class="empty">Cargando…</div>')+
     '<div class="tv-box"><div class="reto-h">Invitar a otro encargado</div><div class="muted" style="margin-bottom:8px">Que abra StudyFlow, cree su cuenta y elija <b>«Me invitaron a una familia»</b> con este código:</div>'+
       (code?'<div class="codebox">'+esc(code)+'</div><div class="row wrap" style="gap:8px;margin-top:10px"><button class="btn ghost small" data-act="copy-code">Copiar código</button><a class="btn famb small" href="https://wa.me/?text='+encodeURIComponent(famInviteText())+'" target="_blank" rel="noopener">💬 Enviar por WhatsApp</a></div>':'<div class="muted">Cargando código…</div>')+'</div>'+
@@ -1225,6 +1227,17 @@ function famAction(a,id){
       '<div class="row" style="margin-top:16px"><button class="btn ghost" data-act="sc-fm-open">Atrás</button><button class="btn" id="fmrok" style="margin-left:auto">Guardar</button></div>');
     $('#fmrok').onclick=function(){var r=relVal('#fmr'),uid=AUTH.user.uid,b=this;b.disabled=true;
       Promise.all([F().root.doc('users/'+uid).update({rel:r}),F().root.doc('families/'+p.familyId+'/members/'+uid).update({rel:r})]).then(function(){AUTH.prof.rel=r;toast('Listo ✅');famMembersLoad(true);famMembersModal();render()},function(){b.disabled=false;toast('No se pudo guardar. Intenta de nuevo.')})};
+    return;}
+  if(a==='sc-fm-sdel'){var st=(FAMM.list||[]).filter(function(x){return x.id===id})[0];if(!st)return;var nm=String(st.name||'').trim(),fn=nm.split(' ')[0]||nm;
+    openModal('<h3>Eliminar a '+esc(nm)+' de la familia</h3><div class="evc late" style="margin-top:8px"><div class="evc-e">⚠️</div><div>Se borran de la familia sus tareas, notas, temario, evidencias, mensajes y premios, y se desconecta de su colegio. <b>No se puede deshacer.</b></div></div>'+
+      '<p class="muted" style="font-size:13.5px">Su cuenta de StudyFlow no se borra: al abrir la app podrá unirse a otra familia con un código.</p>'+
+      '<label for="fsd">Para confirmar, escribe su nombre: <b>'+esc(fn)+'</b></label><input id="fsd" autocomplete="off" placeholder="'+esc(fn)+'">'+
+      '<div class="row" style="margin-top:16px"><button class="btn ghost" data-act="sc-fm-open">Cancelar</button><button class="btn danger" id="fsdok" style="margin-left:auto" disabled>Eliminar</button></div>');
+    var norm=function(x){return String(x||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'')};
+    $('#fsd').addEventListener('input',function(){$('#fsdok').disabled=norm(this.value)!==norm(fn)});
+    $('#fsdok').onclick=function(){var b=this;b.disabled=true;b.textContent='Eliminando…';
+      F().famAdmin('removeStudent',{studentId:id}).then(function(){toast(nm+' ya no está en la familia');if(curSid===id)curSid='';FAMM.list=(FAMM.list||[]).filter(function(x){return x.id!==id});famMembersLoad(true);famMembersModal();render()},
+        function(e){b.disabled=false;b.textContent='Eliminar';toast(String(e&&e.code||'').indexOf('owner')>=0?'Solo quien creó la familia puede eliminar estudiantes.':'No se pudo eliminar. Revisa tu conexión e intenta de nuevo.')})};
     return;}
   if(a==='sc-fm-del'){var m=(FAMM.list||[]).filter(function(x){return x.id===id})[0];if(!m)return;
     ask('«'+(m.name||'Este encargado')+'» ya no podrá ver ni cambiar nada de la familia. Puede volver a unirse con el código.','Quitar',function(){
@@ -4101,7 +4114,7 @@ function formSettings(){
   out+='<h4>Plan</h4><div class="row between wrap"><span>'+(isPro()?'🚀 <b>Pro</b>'+(proUntil()?' · hasta el '+esc(fmtDay(proUntil())):''):'Gratis')+'</span><button class="btn ghost small" data-act="plans">Ver planes</button></div>'+
     (!SAMPLE&&F()&&F().isAdminEmail&&F().isAdminEmail()?'<h4>Administrador</h4><button class="btn ghost small" data-act="adm-open">Abrir panel de administrador</button>':'');
   out+='<h4>Cuenta</h4><p class="muted" style="margin:0 0 8px">'+(SAMPLE?'Estás en la demostración.':esc((F()&&F().email&&F().email())||''))+'</p>'+
-    (SAMPLE?'':(par?'<button class="btn ghost small" data-act="fam-code" style="margin-right:8px">Ver código de familia</button><button class="btn ghost small" data-act="sc-fm-open" style="margin-right:8px">👨‍👩‍👧 Encargados</button>':'')+((staffEntries().length||isPlatAdmin())?'<button class="btn ghost small" data-act="sc-switch" style="margin-right:8px">Cambiar de panel</button>':'')+'<button class="btn ghost small" data-act="logout">Cerrar sesión</button>')+
+    (SAMPLE?'':(par?'<button class="btn ghost small" data-act="fam-code" style="margin-right:8px">Ver código de familia</button><button class="btn ghost small" data-act="sc-fm-open" style="margin-right:8px">👨‍👩‍👧 Mi familia</button>':'')+((staffEntries().length||isPlatAdmin())?'<button class="btn ghost small" data-act="sc-switch" style="margin-right:8px">Cambiar de panel</button>':'')+'<button class="btn ghost small" data-act="logout">Cerrar sesión</button>')+
     '<div class="row" style="margin-top:18px"><button class="btn ghost" data-act="close" style="margin-left:auto">Cerrar</button></div>';
   openModal(out);
   avatarBind();

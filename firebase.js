@@ -134,6 +134,7 @@ if(!cfg.apiKey||/PEGA|TU_/.test(cfg.apiKey)){
       if(auth.currentUser)await auth.currentUser.getIdToken(true);
       try{return (await callAdmin(Object.assign({action},data||{}))).data}catch(e){throw{code:String(e&&e.message||'error')}}
     },
+    famAdmin:async(action,d)=>{try{return (await httpsCallable(fn,'famAdmin',{timeout:60000})(Object.assign({action},d||{}))).data}catch(e){throw{code:String(e&&e.message||'error')}}},
     temLink:async(action,d)=>{try{return (await httpsCallable(fn,'temLink',{timeout:30000})(Object.assign({action},d||{}))).data}catch(e){throw{code:String(e&&e.message||'error')}}},
     teacherReq:async d=>(await httpsCallable(fn,'teacherReq',{timeout:30000})(d)).data,
     teacherGet:async token=>(await httpsCallable(fn,'teacherGet',{timeout:20000})({token})).data,
