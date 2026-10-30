@@ -760,6 +760,8 @@ header small .hs{display:block;font-size:13px;opacity:.92;margin:2px 0 1px;line-
 .tschk .chipb{min-height:34px;padding:6px 10px;font-size:12.5px}
 .pcont{padding:8px 0;border-bottom:1px solid var(--line)}
 .pcont:last-child{border-bottom:0}
+.booktable td .dot{display:inline-block;width:9px;height:9px;vertical-align:middle}
+.booktable tbody tr[data-act]:hover td{background:var(--primary-soft)}
 </style>
 </head>
 <body>
@@ -3172,6 +3174,7 @@ function vGrades(){
   var out='<div class="tabs"><button data-act="gfilter" data-id="all" class="'+(gradeSubj==='all'?'active':'')+'">Todas</button>'+
     S.subjects.map(function(s){return '<button data-act="gfilter" data-id="'+s.id+'" class="'+(gradeSubj===s.id?'active':'')+'">'+esc(s.name)+'</button>'}).join('')+'</div>';
   var gs=S.grades.filter(function(g){return gradeSubj==='all'||g.subject===gradeSubj}).sort(function(a,b){return a.date<b.date?-1:1});
+  if(gradeSubj==='all')out+=libretaCard();
   out+='<div class="card"><h2>Evolución</h2>'+chart(gs)+'</div>';
   if(gradeSubj==='all'){
     out+='<div class="card"><h2>Promedio por materia</h2>';
@@ -3471,7 +3474,7 @@ function tutorTopics(){
 function pHome(){
   if(!curSid)return noStudent();
   var out=stChips()+proRequestCard()+studyGroupsCard()+whoCard()+reviewHomeCard()+dueSoonCard()+validationCard();
-  var _sc=stChips();if(out.indexOf(_sc)===0)out=_sc+parentSchoolCard()+famInviteCard()+(S.subjects.length?subjTilesCard():'')+out.slice(_sc.length);
+  var _sc=stChips();if(out.indexOf(_sc)===0)out=_sc+parentSchoolCard()+famInviteCard()+(S.subjects.length?subjTilesCard()+libretaCard():'')+out.slice(_sc.length);
   if(!S.subjects.length)return out+'<div class="card"><div class="empty">Aún no ha registrado materias. Cuando lo haga, aquí verás su progreso.</div></div>';
   return out+(isPro()?'':'<div class="card" style="background:var(--primary-soft);box-shadow:none"><div class="row between wrap"><div><b>Plan Gratis</b><div class="muted">Con Pro: tutor de IA sin esperas, mini exámenes ilimitados, fotos del temario y guías para padres.</div></div><button class="btn small" data-act="plans">Ver planes</button></div></div>')+topicsParentCard()+progressCore()+badgesCard()+tutorTopics()+
     '<div class="card"><h2>'+ic('share')+'Compartir resumen</h2><p class="muted">Copia el resumen para enviarlo al docente u otro familiar.</p><button class="btn block" data-act="share">Copiar resumen</button></div>';
@@ -3480,7 +3483,7 @@ function pAct(){
   if(!curSid)return stChips()+parentActivityTypesCard()+noStudent();
   var out=stChips()+parentAssignedTasks()+'<h2 style="font-size:15px;margin:4px 0 8px">Tareas registradas por el estudiante</h2>'+tasksList();
   var gs=S.grades.slice().sort(function(a,b){return a.date<b.date?-1:1}).slice(-8);
-  out+='<div class="card"><h2>'+ic('grades')+'Notas recientes</h2>'+gradeList(gs,true)+'</div>';
+  out+=libretaCard()+'<div class="card"><h2>'+ic('grades')+'Notas recientes</h2>'+gradeList(gs,true)+'</div>';
   out+='<div class="card"><h2>'+ic('bookopen')+'Lecturas programadas</h2>';
   if(!S.reads.length)out+='<div class="empty">Sin horarios de lectura.</div>';
   S.reads.forEach(function(r){
@@ -4764,7 +4767,7 @@ function vHomeV2(){
   }
   var pend=sortedPending(),late=pend.filter(function(t){return diffDays(t.due)<0}).length,soon=pend.filter(function(t){return diffDays(t.due)<=1});
   var avg=overallAvg(),st=streak();
-  var out=link+levelCard()+subjTilesCard()+schoolStudentCard();
+  var out=link+levelCard()+subjTilesCard()+libretaCard()+schoolStudentCard();
   out+='<div class="card"><div class="row between"><h2 style="margin:0">'+ic('clock')+'Lo que viene</h2><button class="btn ghost small" data-v="cal">'+ic('calendar')+'Calendario</button></div>';
   if(!pend.length)out+='<div class="empty">Sin tareas pendientes 🎉</div>';
   else pend.slice(0,5).forEach(function(t){out+=taskRow(t)});
@@ -4866,7 +4869,9 @@ function vSubj(){
   }else if(tab==='notas'){
     var gs=S.grades.filter(function(g){return g.subject===s.id}).sort(function(a,b){return a.date<b.date?1:-1});
     out+='<div class="card"><div class="row between"><div><div class="muted">Promedio</div><div class="big">'+fmtScore(m.avg)+'</div></div><div class="muted" style="text-align:right">Meta '+fmtScore(S.settings.goal)+'<br>'+trendHtml(trend(s.id))+'</div></div>'+
-      (gs.length?gradeList(gs,par):'<div class="empty">'+(par?'Sin notas todavía.':'Sin notas todavía. Toca + para registrar una.')+'</div>')+'</div>';
+      (gs.length?gradeList(gs,par):'<div class="empty">'+(par?'Sin notas todavía.':'Sin notas todavía. Toca + para registrar una.')+'</div>')+'</div>'+
+      (gs.length?'<div class="card"><h2>📊 Libreta de '+esc(s.name)+'</h2>'+libSubjHtml(s.id)+'</div>':'')+
+      (par?'<div class="tlask"><b>📨 Pedir notas a la docente</b><div class="muted">Envíale un link por WhatsApp: lo abre sin cuenta ni registro, pone las notas con su % y le llegan a '+esc(firstName())+' aquí, en la libreta.</div><button class="btn famb small" data-act="sc-tl-notas" data-id="'+esc(s.id)+'" style="margin-top:8px">📨 Pedir notas de '+esc(s.name)+'</button></div>':'');
   }else{
     var weak=S.topics.filter(function(t){return t.subject===s.id&&isWeak(t)});
     out+='<div class="studyg">'+
@@ -6063,6 +6068,8 @@ function schoolAction(a,id,el){
   switch(a){
     case 'cal-m':calShift(+id);render();break;
     case 'cal-day':CAL.d=id;render();break;
+    case 'subj-lib':libModal(id);break;
+    case 'subj-libs':libModal('');break;
     case 'subj-open':curSubj=id;SC.subjTab='cal';calInit();view='subj';render();window.scrollTo(0,0);break;
     case 'subj-tab':SC.subjTab=id;render();break;
     case 'subj-manage':subTab='materias';view='subjects';render();window.scrollTo(0,0);break;
@@ -6113,6 +6120,8 @@ function schoolAction(a,id,el){
     case 'sc-tchk':tstuCheck(id);break;
     case 'pt-new-subj':parentTaskForm('',{subject:id});break;
     case 'sc-tl-ask':tlAskModal(id);break;
+    case 'sc-tl-notas':tlAskModal(id,'notas');break;
+    case 'sc-tl-pick':tlPickModal();break;
     case 'sc-temby':schAct('sch.tri',{by:id}).then(function(){toast(id==='teacher'?'Cada docente puede cargar el temario de sus materias ✅':'El temario lo carga el colegio ✅')});break;
     case 'sc-tnew-unit':var tc1=temCurCtx();if(tc1){setTemCtx(tc1.g,tc1.sj);formLvUnit(null)}break;
     case 'sc-tbulk':var tc2=temCurCtx();if(tc2){setTemCtx(tc2.g,tc2.sj);formTemarioBulk(lvSecs(tc2.g.name,tc2.sj.name),tc2.sj.name)}break;
@@ -6213,10 +6222,12 @@ function temByChips(){
 /* ---------- Familia: pedir a la docente el temario y las actividades por un link ---------- */
 function tlKey(sid){return 'sf.tl.'+curSid+'.'+sid}
 function tlSaved(sid){try{var x=JSON.parse(lsGet(tlKey(sid))||'null');return x&&x.exp>Date.now()?x:null}catch(e){return null}}
-function tlAskModal(sid){
+var TLMODE='';
+function tlAskModal(sid,mode){
+  TLMODE=mode==='notas'?'notas':'';
   var s=subj(sid);if(!s)return;var sv=tlSaved(sid);
   if(sv){tlShowLink(s,sv.link,sv.teacher);return}
-  openModal('<h3>📨 Pedir temario y actividades</h3><p class="muted" style="margin:0">Se crea un link para la docente de <b>'+esc(s.name)+'</b>. Lo abre sin cuenta, pega o sube el temario y pone las actividades. Todo le llega a '+esc(firstName())+' en la app, con su nombre.</p>'+
+  openModal((TLMODE?'<h3>📨 Pedir notas a la docente</h3><p class="muted" style="margin:0">Se crea un link para la docente de <b>'+esc(s.name)+'</b>. Lo abre sin cuenta ni registro y pone las notas de exámenes, laboratorios, proyectos y otras evaluaciones, con el % de cada una. Las notas le llegan':'<h3>📨 Pedir temario, actividades y notas</h3><p class="muted" style="margin:0">Se crea un link para la docente de <b>'+esc(s.name)+'</b>. Lo abre sin cuenta, pega o sube el temario, pone las actividades y las notas. Todo le llega')+' a '+esc(firstName())+' en la app, con su nombre.</p>'+
     '<label for="tl1">Nombre de la docente</label><input id="tl1" maxlength="60" value="'+esc(s.teacher||'')+'" placeholder="Ej. Profa. Ruiz">'+
     '<div class="row" style="margin-top:16px"><button class="btn ghost" data-act="close">Cancelar</button><button class="btn famb" id="tlok" style="margin-left:auto">Crear link</button></div>');
   $('#tlok').onclick=function(){
@@ -6227,16 +6238,17 @@ function tlAskModal(sid){
     F().temLink('create',{studentId:curSid,subjectId:sid,subject:s.name,teacherName:tn,askedBy:parentName()}).then(function(r){done(r.token)},function(e){b.disabled=false;toast(String(e&&e.code||'').indexOf('limit')>=0?'Hoy ya se crearon muchos links. Intenta mañana.':'No se pudo crear el link. Revisa tu conexión.')});
   };
 }
-function tlMsg(s,link,teacher){return 'Hola'+(teacher?' '+teacher:'')+', soy '+parentName()+', de '+firstName()+'. ¿Me ayuda cargando el temario y las actividades de '+s.name+' en este link? No necesita cuenta ni instalar nada: '+link}
+function tlMsg(s,link,teacher){return 'Hola'+(teacher?' '+teacher:'')+', soy '+parentName()+', de '+firstName()+'. ¿Me ayuda '+(TLMODE?'poniendo las notas (exámenes, laboratorios, proyectos…) de '+s.name+' en este link?':'cargando el temario, las actividades y las notas de '+s.name+' en este link?')+' No necesita cuenta ni instalar nada: '+link}
 function tlShowLink(s,link,teacher){
-  openModal('<h3>📨 Link para la docente</h3><p class="muted" style="margin:0">'+esc(s.name)+(teacher?' · '+esc(teacher):'')+'. Sirve 30 días y la docente puede usarlo varias veces para agregar más temas o actividades.</p>'+
+  link=String(link).replace(/&n=1$/,'')+(TLMODE?'&n=1':'');
+  openModal('<h3>📨 Link para la docente</h3><p class="muted" style="margin:0">'+esc(s.name)+(teacher?' · '+esc(teacher):'')+'. Sirve 30 días y la docente puede usarlo varias veces, sin cuenta ni registro, para agregar temas, actividades o notas.</p>'+
     '<div class="linkbox">'+esc(link)+'</div>'+
     '<div class="row wrap" style="gap:8px;margin-top:12px"><a class="btn famb" href="https://wa.me/?text='+encodeURIComponent(tlMsg(s,link,teacher))+'" target="_blank" rel="noopener">💬 Enviar por WhatsApp</a><button class="btn ghost" id="tlcp">Copiar mensaje</button></div>'+
     (SAMPLE?'<button class="btn ghost block" id="tldemo" style="margin-top:10px">Demostración: abrir como la docente</button>':'')+
     '<div class="row" style="margin-top:14px"><button class="btn ghost small" id="tlnew">Crear otro link</button><button class="btn ghost" data-act="close" style="margin-left:auto">Cerrar</button></div>');
   $('#tlcp').onclick=function(){var m=tlMsg(s,link,teacher);(navigator.clipboard?navigator.clipboard.writeText(m):Promise.reject()).then(function(){toast('Mensaje copiado ✅')},function(){toast('Copia el link de arriba')})};
-  $('#tlnew').onclick=function(){try{localStorage.removeItem(tlKey(s.id))}catch(e){}tlAskModal(s.id)};
-  if(SAMPLE)$('#tldemo').onclick=function(){var tok=(link.split('?tt=')[1]||'');tlDemoTeacher(tok)};
+  $('#tlnew').onclick=function(){try{localStorage.removeItem(tlKey(s.id))}catch(e){}tlAskModal(s.id,TLMODE)};
+  if(SAMPLE)$('#tldemo').onclick=function(){var tok=(link.split('?tt=')[1]||'').split('&')[0];tlDemoTeacher(tok)};
 }
 
 /* ---------- Página de la docente (sin cuenta): temario + actividades ---------- */
@@ -6312,7 +6324,7 @@ function tlTeacherBoot(api){
   var show=function(html){v.innerHTML='<div class="card">'+html+'</div>'};
   var load=function(){show('<div class="empty">Cargando…</div>');
     api.temLink('get',{token:tok}).then(function(info){
-      show(tlFormHtml(info));
+      show(tlFormHtml(info));if(/[?&]n=1(&|$)/.test(location.search))setTimeout(function(){var e=$('#tlgn');if(e){e.scrollIntoView({block:'center'});$('#hTitle').textContent='Notas'}},300);
       tlBind(function(d,b){api.temLink('submit',Object.assign({token:tok},d)).then(function(r){show(tlThanks(r,info.studentName));$('#tlmore').onclick=load},function(){b.disabled=false;toast('No se pudo enviar. Revise su conexión e intente de nuevo.')})});
     },function(e){var m=String(e&&(e.code||e.message)||'');
       show('<div class="tch"><div class="evc late"><div class="evc-e">⏳</div><div><b>'+(m.indexOf('expired')>=0?'Este link ya venció':'Este link no es válido')+'</b><div class="muted">Pida a la familia que le envíe uno nuevo desde StudyFlow.</div></div></div></div>')});
@@ -6489,6 +6501,55 @@ function mergeOfficial(T,list){
 function demoOfficial(sid,gid,uid){var s=demo&&demo.sch&&demo.sch.schools[sid];if(!s)return [];var out=[];
   ((s.evals||{})[gid]||[]).forEach(function(e){var x=(e.scores||{})[uid];if(!hasScore(x))return;var t=staffByIdIn(sid,e.by)||'';
     out.push({evalId:e.id,subjectId:e.subjectId,name:e.name,type:e.type,date:e.date,max:e.max,pct:e.pct,tri:e.tri,score:+x.s,comment:x.c||'',teacherName:t})});return out}
+
+
+/* ---------- Libreta de notas (alumno y familia) ---------- */
+function libN(){return (S.schoolTri&&+S.schoolTri.n===4)?4:3}
+function libL(){return libN()===4?'P':'T'}
+function libGrades(sid){var gs=S.grades.filter(function(g){return g.subject===sid}),o=gs.filter(function(g){return g.official});return o.length?o:gs}
+function libRow(sid){var gs=libGrades(sid),r={tri:[],fin:wavg(gs),n:gs.length};for(var t=1;t<=libN();t++)r.tri.push(wavg(gs.filter(function(g){return (+g.tri||0)===t})));return r}
+function libCell(p,b){var low=p!=null&&p<S.settings.goal;return '<td class="fin'+(low?' low':'')+'">'+(b?'<b>'+fmtScore(p)+'</b>':fmtScore(p))+'</td>'}
+function libretaTable(){
+  var subs=S.subjects.filter(function(s){return S.grades.some(function(g){return g.subject===s.id})});if(!subs.length)return '';
+  var cur=S.schoolTri&&+S.schoolTri.cur,tot=[];
+  var rows=subs.map(function(s){var r=libRow(s.id);if(r.fin!=null)tot.push(r.fin);
+    return '<tr data-act="subj-lib" data-id="'+esc(s.id)+'" style="cursor:pointer"><td class="nm"><span class="dot" style="background:'+esc(s.color)+'"></span> '+esc(s.name)+'</td>'+r.tri.map(function(p){return '<td'+(p!=null&&p<S.settings.goal?' class="low"':'')+'>'+fmtScore(p)+'</td>'}).join('')+libCell(r.fin,true)+'</tr>'}).join('');
+  var gen=tot.length?tot.reduce(function(a,b){return a+b},0)/tot.length:null;
+  var th='';for(var t=1;t<=libN();t++)th+='<th>'+libL()+t+(cur===t?'<small>en curso</small>':'')+'</th>';
+  return '<div class="booktable"><table><thead><tr><th>Materia</th>'+th+'<th>Final</th></tr></thead><tbody>'+rows+
+    '<tr class="fin"><td><b>Promedio general</b></td><td colspan="'+libN()+'"></td>'+libCell(gen,true)+'</tr></tbody></table></div>';
+}
+function libretaCard(){
+  var t=libretaTable(),par=MODE==='parent';if(!t&&!par)return '';
+  var ask=par&&S.subjects.length?'<button class="btn famb block" data-act="sc-tl-pick" style="margin-top:12px">📨 Pedir notas a la docente por link</button><div class="muted" style="font-size:12.5px;margin-top:6px;text-align:center">La docente lo abre sin cuenta ni registro.</div>':'';
+  if(!t)return '<div class="card"><h2>📊 Libreta de notas</h2><div class="empty">Todavía no hay notas de '+esc(firstName())+'. Pídeselas a la docente y aparecerán aquí.</div>'+ask+'</div>';
+  return '<div class="card"><div class="row between"><h2 style="margin:0">📊 Libreta de notas</h2><button class="btn ghost small" data-act="subj-libs">Ver detalle</button></div>'+
+    '<p class="muted" style="margin:6px 0 0">'+(par?'Notas de '+esc(firstName())+' por trimestre.':'Tus notas por trimestre.')+' Toca una materia para ver cada evaluación.</p>'+t+ask+'</div>';
+}
+function libSubjHtml(sid){
+  var s=subj(sid);if(!s)return '';var gs=libGrades(sid).slice().sort(function(a,b){return (+a.tri||9)-(+b.tri||9)||(a.date<b.date?-1:1)}),off=gs.some(function(g){return g.official});
+  if(!gs.length)return '<div class="empty">Sin notas de '+esc(s.name)+' todavía.</div>';
+  var rows='',lt=null;
+  gs.forEach(function(g,i){var t=+g.tri||0;
+    if(off&&t!==lt){lt=t}
+    rows+='<tr><td class="nm" style="white-space:normal">'+(g.type?evalEmoji(g.type)+' ':'')+esc(g.name)+'<div class="muted" style="font-size:11.5px">'+(t?libL()+t+' · ':'')+esc(fmtDate(g.date))+'</div>'+(g.comment?'<div class="muted" style="font-size:11.5px">💬 '+esc(g.comment)+'</div>':'')+'</td><td>'+(g.official?(+g.weight||0)+'%':'×'+(g.weight||1))+'</td><td'+(pct(g)<S.settings.goal?' class="low"':'')+'>'+g.score+'/'+g.max+'</td></tr>';
+    var nx=gs[i+1];if(off&&t&&(!nx||(+nx.tri||0)!==t))rows+='<tr class="fin"><td colspan="2">Final '+libL()+t+'</td>'+libCell(wavg(gs.filter(function(x){return (+x.tri||0)===t})),true)+'</tr>'});
+  rows+='<tr class="fin"><td colspan="2"><b>Promedio final de '+esc(s.name)+'</b></td>'+libCell(wavg(gs),true)+'</tr>';
+  var by=gs.filter(function(g){return g.by})[0];
+  return '<div class="booktable"><table><thead><tr><th>Evaluación</th><th>Valor</th><th>Nota</th></tr></thead><tbody>'+rows+'</tbody></table></div>'+
+    (off?'<p class="muted" style="font-size:12.5px;margin:8px 0 0">🧑‍🏫 Notas oficiales'+(by?' de '+esc(by.by):'')+'. El final se calcula con el % de cada evaluación.</p>':'');
+}
+function libModal(sid){
+  var list=sid?[subj(sid)].filter(Boolean):S.subjects.filter(function(s){return S.grades.some(function(g){return g.subject===s.id})});
+  openModal('<h3>📊 Libreta de notas'+(sid&&list[0]?' · '+esc(list[0].name):'')+'</h3><p class="muted" style="margin:0">'+esc(nameOf())+(S.schoolInfo&&S.schoolInfo.grade?' · '+esc(S.schoolInfo.grade):'')+'</p>'+
+    (sid?'':libretaTable())+list.map(function(s){return (sid?'':'<h4 style="margin:16px 0 0"><span class="dot" style="background:'+esc(s.color)+'"></span> '+esc(s.name)+'</h4>')+libSubjHtml(s.id)}).join('')+
+    '<div class="row" style="margin-top:14px"><button class="btn ghost" data-act="close" style="margin-left:auto">Cerrar</button></div>');
+}
+function tlPickModal(){
+  openModal('<h3>📨 Pedir notas a la docente</h3><p class="muted" style="margin:0">Elige la materia. Se crea un link que la docente abre sin cuenta ni registro para poner las notas de '+esc(firstName())+'.</p><div class="eflist" style="margin-top:12px">'+
+    S.subjects.map(function(s){return '<button class="item" data-act="sc-tl-notas" data-id="'+esc(s.id)+'" style="width:100%;text-align:left;cursor:pointer;background:none;border:0"><span class="dot" style="background:'+esc(s.color)+'"></span><div class="grow"><div class="title">'+esc(s.name)+'</div>'+(s.teacher?'<div class="muted">'+esc(s.teacher)+'</div>':'')+'</div>'+ic('chevr')+'</button>'}).join('')+
+    '</div><div class="row" style="margin-top:14px"><button class="btn ghost" data-act="close" style="margin-left:auto">Cancelar</button></div>');
+}
 
 /* ---------- Eventos ---------- */
 document.addEventListener('click',function(e){
