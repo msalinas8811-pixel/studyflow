@@ -1,5 +1,5 @@
 /* StudyFlow: funciona sin conexión para la parte visual. Los datos vienen de Firebase. */
-var CACHE='studyflow-fb-v41b-iconos';
+var CACHE='studyflow-fb-v42-comunicados';
 var ASSETS=['./','./index.html','./firebase.js','./firebase-config.js','./manifest.json','./logo-192.png','./logo-512.png','./logo-maskable-512.png','./logo-apple-180.png','./logo-32.png'];
 self.addEventListener('install',function(e){e.waitUntil(caches.open(CACHE).then(function(c){return c.addAll(ASSETS)}));self.skipWaiting()});
 self.addEventListener('activate',function(e){e.waitUntil(caches.keys().then(function(k){return Promise.all(k.filter(function(x){return x!==CACHE}).map(function(x){return caches.delete(x)}))}));self.clients.claim()});

@@ -772,6 +772,10 @@ nav .nbadge{position:absolute;top:-3px;right:4px;min-width:18px;height:18px;padd
 .prem-hero{background:linear-gradient(135deg,var(--fam-soft),var(--card))}
 .prem-e{font-size:40px;line-height:1}
 .badge.newb{background:#e5484d;color:#fff;vertical-align:middle}
+.fmsg{border:1px solid var(--line);border-radius:14px;padding:12px;margin-top:10px;background:var(--card)}
+.fmsg.need{border-color:var(--fam);box-shadow:inset 3px 0 0 var(--fam)}
+.fmsg-e{font-size:24px;line-height:1.1}
+.fmsg-t{white-space:pre-wrap;font-size:14px;line-height:1.45}
 </style>
 </head>
 <body>
@@ -798,7 +802,7 @@ var DAYS=['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
 var DEF={goal:70,pomo:25,brk:5,max:100,weekly:300,name:'',grade:''};
 var SNAV=[['home','home','Inicio'],['cal','calendar','Calendario'],['study','sparkle','Estudiar'],['groups','trophy','Retos'],['casa','casa','Casa'],['premios','gift','Premios'],['progress','trend','Progreso']];
 var PNAV=[['p_home','trend','Resumen'],['p_act','clipboard','Actividad'],['p_help','heart','Apoyar'],['p_casa','casa','Casa'],['p_rewards','gift','Premios']];
-var titles={cal:'Calendario',s_home:'Resumen',s_cal:'Calendario',s_grades:'Grados',s_tem:'Temario',s_students:'Alumnos',s_staff:'Personal',s_profile:'Colegio',t_cal:'Calendario',t_grades:'Estudiantes',n_send:'Enfermería',n_hist:'Historial',pl_home:'Colegios',pl_dash:'Dashboard',pl_fam:'Familias',premios:'Premios',s_dash:'Dashboard',t_dash:'Mis materias',home:'Inicio',tasks:'Tareas',subjects:'Temario y materias',grades:'Notas',study:'Estudio',tutor:'Tutor de IA',groups:'Retos',casa:'Tareas de la casa',p_casa:'Tareas de la casa',progress:'Progreso',
+var titles={cal:'Calendario',s_home:'Resumen',s_cal:'Calendario',s_grades:'Grados',s_tem:'Temario',s_students:'Alumnos',s_staff:'Personal',s_profile:'Colegio',t_cal:'Calendario',t_grades:'Estudiantes',n_send:'Enfermería',n_hist:'Historial',pl_home:'Colegios',pl_dash:'Dashboard',pl_fam:'Familias',premios:'Premios',s_msg:'Comunicados',t_msg:'Comunicados',s_dash:'Dashboard',t_dash:'Mis materias',home:'Inicio',tasks:'Tareas',subjects:'Temario y materias',grades:'Notas',study:'Estudio',tutor:'Tutor de IA',groups:'Retos',casa:'Tareas de la casa',p_casa:'Tareas de la casa',progress:'Progreso',
   p_home:'Resumen',p_act:'Actividad',p_help:'Apoyar',p_rewards:'Premios'};
 var KINDS={felicitacion:['🎉','Felicitación','star'],libro:['📚','Libro o recurso','book'],consejo:['💡','Ayuda en un tema','bulb'],recordatorio:['⏰','Recordatorio','clock'],premio:['🎁','Premio','gift'],pro:['🚀','Plan Pro','star'],solicitud:['🙋','Solicitud','hand']};
 
@@ -1111,7 +1115,7 @@ function enterSchool(e){
   DB=null;CLOUD='on';AUTH.st='in';
   MODE=e.role==='teacher'?'teacher':e.role==='nurse'?'nurse':'school';
   view=navItems()[0][0];lsSet('sf.panel','school:'+e.schoolId);
-  SCD={id:e.schoolId,perf:{},profile:null,grades:[],staff:[],reqs:[],members:[],nurse:[],events:{},evals:{},checks:{},me:null,staffId:e.staffId};
+  SCD={id:e.schoolId,perf:{},profile:null,grades:[],staff:[],reqs:[],members:[],nurse:[],events:{},evals:{},checks:{},msgs:[],me:null,staffId:e.staffId};
   var R=F().root,base='schools/'+e.schoolId,admin=e.role==='admin'||e.role==='director';
   var err=function(x){if(String(x&&x.code).indexOf('permission')>=0){toast('Ya no tienes acceso a este colegio.');AUTH.prof.staff=staffEntries().filter(function(z){return z.schoolId!==e.schoolId});lsSet('sf.panel',null);pickPanel(AUTH.prof)}};
   var map=function(q){return q.docs.map(function(d){return Object.assign({id:d.id},d.data())})};
@@ -1121,6 +1125,7 @@ function enterSchool(e){
   unsubs.push(R.collection(base+'/members').onSnapshot(function(q){SCD.members=map(q);softRender()},err));
   if(admin)unsubs.push(R.collection(base+'/reqs').onSnapshot(function(q){SCD.reqs=map(q).filter(function(x){return x.status==='pending'});softRender()},err));
   if(e.role!=='nurse')unsubs.push(R.collection(base+'/checks').onSnapshot(function(q){var m={};q.docs.forEach(function(d){m[d.id]=d.data()});SCD.checks=m;softRender()},function(){}));
+  if(e.role!=='nurse')unsubs.push(R.collection(base+'/msgs').onSnapshot(function(q){SCD.msgs=map(q);softRender()},function(){}));
   if(e.role!=='nurse')unsubs.push(R.collection(base+'/perf').onSnapshot(function(q){var m={};q.docs.forEach(function(d){m[d.id]=d.data()});SCD.perf=m;softRender()},function(){}));
   if(admin||e.role==='nurse')unsubs.push(R.collection(base+'/nurse').onSnapshot(function(q){SCD.nurse=map(q);softRender()},err));
   render();window.scrollTo(0,0);
@@ -1154,6 +1159,11 @@ function schoolFamilyHook(p){
   },function(){}));
   SGR=[];
   unsubs.push(DB.collection('schoolGrades').onSnapshot(function(q){SGR=q.docs.map(function(d){return d.data()});if(MODE==='student')stuSyncSoon();else softRender()},function(){}));
+  FMSG=[];FMSG0=false;
+  if(MODE==='parent')unsubs.push(DB.collection('schoolMsgs').onSnapshot(function(q){
+    var old={};FMSG.forEach(function(m){old[m.id]=1});FMSG=q.docs.map(function(d){return Object.assign({id:d.id},d.data())});
+    if(FMSG0){var nw=FMSG.filter(function(m){return !old[m.id]});if(nw.length){toast('📣 '+(nw.length===1?nw[0].title:nw.length+' comunicados nuevos'));if(typeof fireNotice==='function')fireNotice('📣 '+nw[0].title,(nw[0].role||'')+(nw[0].byName?' · '+nw[0].byName:''))}}
+    FMSG0=true;softRender()},function(){}));
   if(MODE==='parent')unsubs.push(DB.collection('schoolNotes').onSnapshot(function(q){SNOTES=q.docs.map(function(d){return Object.assign({id:d.id},d.data())});softRender()},function(){}));
   unsubs.push(DB.doc('meta/school').onSnapshot(function(d){
     var ids=Object.keys((d.exists&&d.data().schools)||{}).slice(0,5);SCHOOL_PRO=false;
@@ -1789,7 +1799,7 @@ function render(){
   else chip.innerHTML=MODE==='parent'?'<span class="ava">'+esc(parentAvatar())+'</span><span class="nm">'+esc(parentName())+'</span>'+ic('gear'):'<span class="ava">'+esc(studentAvatar())+'</span><span class="nm">'+esc(nameOf())+'</span>'+ic('gear');
   $('#hTitle').textContent=viewTitle();
   $('#fab').style.display=fabOn()?'block':'none';
-  var fn={cal:vCal,subj:vSubj,s_home:vSchHome,s_cal:vSchCal,s_grades:vSchGrades,s_tem:vSchTemario,s_students:vSchStudents,s_staff:vSchStaff,s_profile:vSchProfile,t_cal:vSchCal,t_grades:vTeacherGrades,n_send:vNurseSend,n_hist:vNurseHist,pl_home:vPlat,pl_dash:vPlatDash,pl_fam:vPlatFam,premios:vPremios,s_dash:vSchDash,t_dash:vTeacherDash,home:vHomeV2,tasks:vTasks,subjects:vSubjects,grades:vGrades,study:vStudy,tutor:vTutor,groups:vGroups,casa:vCasa,progress:vProgressB,
+  var fn={cal:vCal,subj:vSubj,s_home:vSchHome,s_cal:vSchCal,s_grades:vSchGrades,s_tem:vSchTemario,s_students:vSchStudents,s_staff:vSchStaff,s_profile:vSchProfile,t_cal:vSchCal,t_grades:vTeacherGrades,n_send:vNurseSend,n_hist:vNurseHist,pl_home:vPlat,pl_dash:vPlatDash,pl_fam:vPlatFam,premios:vPremios,s_msg:vSchMsgs,t_msg:vSchMsgs,s_dash:vSchDash,t_dash:vTeacherDash,home:vHomeV2,tasks:vTasks,subjects:vSubjects,grades:vGrades,study:vStudy,tutor:vTutor,groups:vGroups,casa:vCasa,progress:vProgressB,
     p_home:pHome,p_casa:pCasa,p_act:pAct,p_help:pHelp,p_rewards:pRewards}[view];
   if(typeof preRenderHook==='function')preRenderHook();
   $('#view').innerHTML=banner()+hubTabs()+parentActBar()+(view==='p_act'?'':'')+fn()+parentTemarioCard();
@@ -3490,7 +3500,7 @@ function tutorTopics(){
 function pHome(){
   if(!curSid)return noStudent();
   var out=stChips()+proRequestCard()+studyGroupsCard()+whoCard()+reviewHomeCard()+dueSoonCard()+validationCard();
-  var _sc=stChips();if(out.indexOf(_sc)===0)out=_sc+parentSchoolCard()+famInviteCard()+(S.subjects.length?subjTilesCard()+libretaCard():'')+out.slice(_sc.length);
+  var _sc=stChips();if(out.indexOf(_sc)===0)out=_sc+famMsgCard()+parentSchoolCard()+famInviteCard()+(S.subjects.length?subjTilesCard()+libretaCard():'')+out.slice(_sc.length);
   if(!S.subjects.length)return out+'<div class="card"><div class="empty">Aún no ha registrado materias. Cuando lo haga, aquí verás su progreso.</div></div>';
   return out+(isPro()?'':'<div class="card" style="background:var(--primary-soft);box-shadow:none"><div class="row between wrap"><div><b>Plan Gratis</b><div class="muted">Con Pro: tutor de IA sin esperas, mini exámenes ilimitados, fotos del temario y guías para padres.</div></div><button class="btn small" data-act="plans">Ver planes</button></div></div>')+topicsParentCard()+progressCore()+badgesCard()+tutorTopics()+
     '<div class="card"><h2>'+ic('share')+'Compartir resumen</h2><p class="muted">Copia el resumen para enviarlo al docente u otro familiar.</p><button class="btn block" data-act="share">Copiar resumen</button></div>';
@@ -4483,6 +4493,16 @@ function demoReduce(a,p){
       return {id:id};
     }
     case 'plat.use':D.cur=p.id;return {};
+    case 'msg.send':{need(p.title&&p.text);if(!s.msgs)demoMsgSeed(s);var meM=schMe(),gsM=s.grades,ids=[],sjn='';
+      if(p.kind==='general'){if(MODE!=='school')throw {code:'forbidden'};ids=p.all?gsM.map(function(g){return g.id}):(p.gradeIds||[])}
+      else if(p.kind==='guia')ids=(p.gradeIds||[]).filter(function(gid){var g=gsM.filter(function(x){return x.id===gid})[0];return g&&(MODE==='school'||(meM&&g.tutorId===meM.id))});
+      else ids=(p.gradeIds||[]).filter(function(gid){var g=gsM.filter(function(x){return x.id===gid})[0],sj=g&&(g.subjects||[]).filter(function(z){return z.id===p.subjectId})[0];if(sj&&!sjn)sjn=sj.name;return sj&&(MODE==='school'||(meM&&sj.teacherId===meM.id))});
+      if(!ids.length)throw {code:'forbidden'};
+      var fN=s.members.filter(function(x){return ids.indexOf(x.gradeId)>=0}).length,gn=ids.map(function(gid){return gName(gsM.filter(function(x){return x.id===gid})[0])});
+      s.msgs.push({id:'m'+uid(),kind:p.kind,title:p.title,text:p.text,needsAck:p.needsAck!==false,at:now,by:meM?meM.id:'',byName:meM?meM.name:'Colegio',role:p.kind==='general'?'Administración':p.kind==='guia'?'Docente guía':'Docente de '+sjn,subjectName:sjn,
+        gradeIds:ids,all:!!p.all,gradeNames:p.all?['Todo el colegio']:gn,famN:fN,ackN:0,acks:{},school:s.profile.name,schoolId:s.id});
+      return {families:fN}}
+    case 'msg.del':{s.msgs=(s.msgs||[]).filter(function(m){return m.id!==p.id});return {}}
     case 'plat.del':{var ks=Object.keys(D.schools);need(D.schools[p.id]);if(ks.length<2)throw {code:'last'};delete D.schools[p.id];if(D.cur===p.id)D.cur=Object.keys(D.schools)[0];return {ok:true}}
     case 'plat.fams':return {families:platFamDemo()};
     case 'plat.famSave':{var pf=platFamDemo().filter(function(z){return z.id===p.id})[0];need(pf&&p.name);pf.name=p.name;if(p.owner)pf.owner=p.owner;
@@ -4728,8 +4748,8 @@ function hubTabs(){
 }
 function navItems(){
   if(MODE==='parent')return PNAV;
-  if(MODE==='school')return [['s_dash','chart','Dashboard'],['s_home','home','Resumen'],['s_cal','calendar','Calendario'],['s_grades','book','Grados'],['s_tem','bookopen','Temario'],['s_students','student','Alumnos'],['s_staff','users','Personal'],['s_profile','school','Colegio']];
-  if(MODE==='teacher')return [['t_dash','chart','Mis materias'],['t_cal','calendar','Calendario'],['t_grades','student','Estudiantes']];
+  if(MODE==='school')return [['s_dash','chart','Dashboard'],['s_home','home','Resumen'],['s_cal','calendar','Calendario'],['s_grades','book','Grados'],['s_tem','bookopen','Temario'],['s_students','student','Alumnos'],['s_msg','mail','Avisos'],['s_staff','users','Personal'],['s_profile','school','Colegio']];
+  if(MODE==='teacher')return [['t_dash','chart','Mis materias'],['t_cal','calendar','Calendario'],['t_grades','student','Estudiantes'],['t_msg','mail','Avisos']];
   if(MODE==='nurse')return [['n_send','nurse','Avisos'],['n_hist','list','Historial']];
   if(MODE==='platform')return [['pl_dash','chart','Dashboard'],['pl_home','school','Colegios'],['pl_fam','users','Familias']];
   return SNAV;
@@ -6177,6 +6197,11 @@ function schoolAction(a,id,el){
     case 'pt-del':closeModal();parentTaskDel(id);break;
     case 'sc-plat-edit':formPlatSchool(id);break;
     case 'sc-plat-del':platSchDelModal(id);break;
+    case 'sc-msg-new':formMsg();break;
+    case 'sc-msg-det':msgDetail(id);break;
+    case 'sc-msg-del':ask('Se borrará el comunicado y dejará de verse en las familias.','Eliminar',function(){schAct('msg.del',{id:id}).then(function(){toast('Comunicado eliminado')})});break;
+    case 'sc-fmsg-ack':famMsgAck(id);break;
+    case 'sc-fmsg-all':famMsgAll();break;
     case 'sc-pf-edit':formPlatFam(id);break;
     case 'sc-pf-del':platFamDelModal(id);break;
     case 'sc-plat-open':schAct('plat.use',{id:id}).then(function(){demoSetRole('school')});break;
@@ -6679,6 +6704,7 @@ function navCount(v){
     if(v==='p_casa'&&MODE==='parent'&&curSid){var d0=ymd(new Date()),d1=shift(d0,-1);return choresOf(curSid).filter(function(c){return [d0,d1].some(function(d){return onDay(c,d)&&choreDone(c,d)&&!choreCheck(c,d)})}).length}
     if(v==='p_rewards'&&MODE==='parent'&&curSid){return REWARDS().filter(function(r){return r.student===curSid&&!r.delivered&&rProgress(r).ok}).length}
     if(v==='premios'&&MODE==='student'){var seen=rwSeen();return myRewards().filter(function(r){return !r.delivered&&(rProgress(r).ok||!seen[r.id])}).length}
+    if(v==='p_home'&&MODE==='parent'){return msgPending().length}
     if((v==='cal'&&MODE==='student')||(v==='p_act'&&MODE==='parent'&&curSid)){return (S.tasks||[]).filter(function(t){return !t.done&&t.due&&diffDays(t.due)<=2}).length}
   }catch(e){}
   return 0;
@@ -6706,8 +6732,130 @@ function navIc(x){
   if(x[0]==='premios'&&MODE==='student'&&view==='premios')premCapture();
   if(x[0]==='premios'&&MODE==='student'&&view!=='premios'&&typeof famOn==='function'&&famOn()){var sn=rwSeen(),nw=myRewards().filter(function(r){return !r.delivered&&!sn[r.id]&&!PTOAST[r.id]});
     if(nw.length){nw.forEach(function(r){PTOAST[r.id]=1});setTimeout(function(){toast(nw.length===1?'🎁 Tu familia te puso un premio: '+nw[0].title:'🎁 Tienes '+nw.length+' premios nuevos. Míralos en Premios.')},600)}}
-  var n=navCount(x[0]),tip=!n?'':x[0]==='p_casa'?n+' por revisar':x[0]==='casa'?n+' pendientes hoy':x[0]==='p_rewards'?n+' premios logrados por entregar':x[0]==='premios'?n+' premios nuevos o ganados':n+' por entregar pronto o vencidas';
+  var n=navCount(x[0]),tip=!n?'':x[0]==='p_casa'?n+' por revisar':x[0]==='casa'?n+' pendientes hoy':x[0]==='p_rewards'?n+' premios logrados por entregar':x[0]==='p_home'?n+' comunicados por leer o confirmar':x[0]==='premios'?n+' premios nuevos o ganados':n+' por entregar pronto o vencidas';
   return '<span class="nic">'+ic(x[1])+(n?'<b class="nbadge" aria-label="'+tip+'" title="'+tip+'">'+(n>9?'9+':n)+'</b>':'')+'</span>';
+}
+
+
+/* ---------- Comunicados: colegio, docente de materia y docente guía → familias, con «Enterado» ---------- */
+var MSG_KIND={general:['🏫','Comunicado del colegio'],materia:['📚','Docente de materia'],guia:['🧑‍🏫','Docente guía']};
+var FMSG=[],FMSG0=false;
+function schMsgs(){var s=SCH();if(!s)return [];if(SAMPLE&&!s.msgs)demoMsgSeed(s);var me=schMe();
+  return (s.msgs||[]).filter(function(m){return MODE==='school'||(me&&m.by===me.id)}).sort(function(a,b){return b.at-a.at})}
+function demoMsgSeed(s){
+  var t=Date.now(),g7=s.grades.filter(function(g){return g.id==='g7'})[0];if(!g7){s.msgs=[];return}
+  var tu=staffById(g7.tutorId),ad=s.staff.filter(function(x){return x.role==='admin'||x.role==='director'})[0];
+  var mk=function(o){return Object.assign({id:'m'+uid(),at:t,needsAck:true,acks:{},school:s.profile.name,schoolId:s.id},o)};
+  s.msgs=[
+    mk({kind:'general',title:'Reunión general de madres y padres',text:'Les esperamos el viernes a las 5:00 p. m. en el salón de usos múltiples. Se entregará el boletín del trimestre.',by:ad?ad.id:'',byName:ad?ad.name:'Dirección',role:'Administración',gradeIds:s.grades.map(function(g){return g.id}),all:true,gradeNames:['Todo el colegio'],at:t-3600e3*20,
+      acks:{u_carlos:{name:'Rosa Martínez',rel:'Mamá',at:t-3600e3*18},u_valeria:{name:'Jorge Gómez',rel:'Papá',at:t-3600e3*10}}}),
+    mk({kind:'guia',title:'Uniforme de gala el lunes',text:'El lunes tenemos acto cívico. Por favor, que vengan con uniforme de gala y zapatos negros.',by:tu?tu.id:'',byName:tu?tu.name:'Docente guía',role:'Docente guía',gradeIds:['g7'],gradeNames:[gName(g7)],at:t-3600e3*3,
+      acks:{u_diego:{name:'Ana Pineda',rel:'Mamá',at:t-3600e3*2}}}),
+    mk({kind:'materia',subjectName:'Matemática',title:'Traer regla y compás',text:'Para la clase del jueves de geometría necesitan regla, transportador y compás.',by:'stf_ruiz',byName:'Prof. Ruiz',role:'Docente de Matemática',gradeIds:['g7'],gradeNames:[gName(g7)],needsAck:false,at:t-3600e3*30})];
+  s.msgs.forEach(function(m){m.famN=s.members.filter(function(x){return m.gradeIds.indexOf(x.gradeId)>=0}).length;m.ackN=Object.keys(m.acks).length});
+}
+/* Familia: comunicados que le llegaron */
+function famMsgs(){
+  if(SAMPLE){var s=demo&&demo.sch&&demo.sch.schools[demo.sch.cur],l=S&&S.settings&&S.settings.school;if(!s||!l||l.status!=='approved')return [];if(!s.msgs)demoMsgSeed(s);
+    return s.msgs.filter(function(m){return m.gradeIds.indexOf(l.gradeId)>=0}).map(function(m){var a=m.acks.demo;return Object.assign({},m,{id:s.id+'_'+m.id,msgId:m.id,studentNames:[nameOf()],grades:[l.gradeName],acks:a?{p:a}:{}})}).sort(function(a,b){return b.at-a.at})}
+  return FMSG.slice().sort(function(a,b){return b.at-a.at});
+}
+function msgAcked(m){return Object.keys(m.acks||{}).length>0}
+function msgSeen(){try{return JSON.parse(lsGet('sf.msgseen')||'{}')||{}}catch(e){return {}}}
+function msgPending(){var sn=msgSeen();return famMsgs().filter(function(m){return m.needsAck?!msgAcked(m):!sn[m.id]})}
+function msgMarkSeen(l){var sn=msgSeen(),ch=false;l.forEach(function(m){if(!m.needsAck&&!sn[m.id]){sn[m.id]=1;ch=true}});if(ch)lsSet('sf.msgseen',JSON.stringify(sn))}
+function msgRow(m,full){
+  var k=MSG_KIND[m.kind]||MSG_KIND.general,ak=msgAcked(m),a=ak?m.acks[Object.keys(m.acks)[0]]:null,long=String(m.text||'').length>180&&!full;
+  return '<div class="fmsg'+(m.needsAck&&!ak?' need':'')+'"><div class="row" style="gap:10px;align-items:flex-start"><span class="fmsg-e">'+k[0]+'</span><div class="grow">'+
+    '<div class="muted" style="font-size:12.5px">'+esc(m.role||k[1])+' · '+esc(m.byName||'')+' · '+esc(ago(m.at))+'</div><div class="title" style="margin:2px 0 4px">'+esc(m.title)+'</div>'+
+    '<div class="fmsg-t">'+esc(long?String(m.text).slice(0,170)+'…':m.text)+'</div>'+(long?'<button class="linkbtn" data-act="sc-fmsg-all">Leer completo</button>':'')+
+    '<div class="muted" style="font-size:12.5px;margin-top:6px">Para: '+esc((m.studentNames||[]).join(', '))+((m.grades||[]).length?' · '+esc(m.grades.join(', ')):'')+'</div>'+
+    (m.needsAck?(ak?'<div class="okp" style="margin-top:8px">✔ Confirmado por '+esc(a.name||'la familia')+(a.rel?' ('+esc(String(a.rel).toLowerCase())+')':'')+' · '+esc(ago(a.at))+'</div>':
+      '<button class="btn famb small" data-act="sc-fmsg-ack" data-id="'+esc(m.id)+'" style="margin-top:8px">✅ Enterado</button>'):'')+
+    '</div></div></div>';
+}
+function famMsgCard(){
+  if(MODE!=='parent')return '';var l=famMsgs();if(!l.length)return '';
+  var pend=l.filter(function(m){return m.needsAck&&!msgAcked(m)}),show=pend.concat(l.filter(function(m){return pend.indexOf(m)<0})).slice(0,3);
+  setTimeout(function(){msgMarkSeen(show)},0);
+  return '<div class="card fmsgs"><div class="row between"><h2 style="margin:0">📣 Comunicados</h2>'+(pend.length?'<span class="badge newb">'+pend.length+' por confirmar</span>':'')+'</div>'+
+    show.map(function(m){return msgRow(m,false)}).join('')+(l.length>3||show.some(function(m){return String(m.text||'').length>180})?'<button class="btn ghost small block" data-act="sc-fmsg-all" style="margin-top:10px">Ver todos los comunicados ('+l.length+')</button>':'')+'</div>';
+}
+function famMsgAll(){var l=famMsgs();msgMarkSeen(l);openModal('<h3>📣 Comunicados</h3>'+(l.length?l.map(function(m){return msgRow(m,true)}).join(''):'<div class="empty">No hay comunicados.</div>')+'<div class="row" style="margin-top:14px"><button class="btn ghost" data-act="close" style="margin-left:auto">Cerrar</button></div>')}
+function famMsgAck(id){
+  var done=function(){toast('Gracias. El colegio ya sabe que lo leíste ✅');if($('#sheet')&&$('#modal').classList.contains('open'))famMsgAll();softRender()};
+  if(SAMPLE){var m=famMsgs().filter(function(x){return x.id===id})[0];if(!m)return;var s=demo.sch.schools[demo.sch.cur],o=s.msgs.filter(function(x){return x.id===m.msgId})[0];
+    if(o&&!o.acks.demo){o.acks.demo={name:parentName().replace(/ \(.*\)$/,''),rel:(typeof AUTH!=='undefined'&&AUTH.prof&&AUTH.prof.rel)||'Papá',at:Date.now()};o.ackN=Object.keys(o.acks).length}done();return}
+  if(!F()||!F().famAdmin){toast('Esta función se usa con las cuentas de la familia.');return}
+  F().famAdmin('msgAck',{id:id}).then(function(){var m=FMSG.filter(function(x){return x.id===id})[0];if(m&&!msgAcked(m)){m.acks={me:{name:parentName(),at:Date.now()}}}done()},function(){toast('No se pudo confirmar. Revisa tu conexión.')});
+}
+/* Personal: enviar y ver confirmaciones */
+function msgTargets(){
+  var me=schMe(),out={guia:[],materia:[]};
+  myGrades().forEach(function(g){
+    if(MODE==='school'||(me&&g.tutorId===me.id))out.guia.push({gid:g.id,label:gName(g)});
+    (g.subjects||[]).forEach(function(sj){if(MODE==='school'||(me&&sj.teacherId===me.id))out.materia.push({gid:g.id,sj:sj.id,sjName:sj.name,label:sj.name+' · '+gName(g)})});
+  });
+  return out;
+}
+function vSchMsgs(){
+  var s=SCH();if(!s)return schLoading();var l=schMsgs(),tg=msgTargets(),can=MODE==='school'||tg.guia.length||tg.materia.length;
+  var out=schHead()+'<div class="card"><div class="row between wrap" style="gap:8px"><div><h2 style="margin:0">📣 Comunicados a las familias</h2><p class="muted" style="margin:4px 0 0">'+
+    (MODE==='school'?'Avisos generales del colegio para todas las familias o para algunos grados.':'Avisos para las familias de tus materias'+(tg.guia.length?' y de tu grado como docente guía':'')+'.')+' Puedes pedir que confirmen con «Enterado».</p></div>'+
+    (can?'<button class="btn" data-act="sc-msg-new">＋ Nuevo comunicado</button>':'')+'</div></div>';
+  if(!l.length)out+='<div class="card"><div class="empty">Todavía no has enviado comunicados.</div></div>';
+  l.forEach(function(m){var k=MSG_KIND[m.kind]||MSG_KIND.general,p=m.famN?Math.round((m.ackN||0)/m.famN*100):0;
+    out+='<div class="card"><div class="row" style="gap:10px;align-items:flex-start"><span class="fmsg-e">'+k[0]+'</span><div class="grow"><div class="muted" style="font-size:12.5px">'+esc(m.role||k[1])+(MODE==='school'?' · '+esc(m.byName||''):'')+' · '+esc(ago(m.at))+'</div>'+
+      '<div class="title" style="margin:2px 0 4px">'+esc(m.title)+'</div><div class="fmsg-t">'+esc(String(m.text||'').length>220?String(m.text).slice(0,210)+'…':m.text)+'</div>'+
+      '<div class="muted" style="font-size:12.5px;margin-top:6px">Para: '+esc((m.gradeNames||[]).join(', '))+' · '+(m.famN||0)+' '+plural(m.famN||0,'familia','familias')+'</div>'+
+      (m.needsAck?'<div class="row between" style="margin-top:8px;font-size:13px"><span>✅ <b>'+(m.ackN||0)+'</b> de '+(m.famN||0)+' confirmaron</span><span class="muted">'+p+'%</span></div><div class="bar" style="margin-top:4px"><i style="width:'+p+'%;background:var(--fam)"></i></div>':'<div class="muted" style="font-size:12.5px;margin-top:6px">Sin confirmación de lectura</div>')+
+      '<div class="row wrap" style="gap:8px;margin-top:10px">'+(m.needsAck?'<button class="btn ghost small" data-act="sc-msg-det" data-id="'+esc(m.id)+'">Ver quién confirmó</button>':'')+'<button class="btn ghost small danger-t" data-act="sc-msg-del" data-id="'+esc(m.id)+'">🗑️ Eliminar</button></div></div></div></div>'});
+  return out;
+}
+function formMsg(){
+  var tg=msgTargets(),kinds=[];
+  if(MODE==='school')kinds.push(['general','🏫 General del colegio']);
+  if(tg.guia.length&&MODE!=='school')kinds.push(['guia','🧑‍🏫 Como docente guía']);
+  if(tg.materia.length&&MODE!=='school')kinds.push(['materia','📚 Por materia']);
+  if(!kinds.length){toast('No tienes grados asignados para enviar comunicados.');return}
+  var k0=kinds[0][0];
+  openModal('<h3>📣 Nuevo comunicado</h3>'+(kinds.length>1?'<label>Tipo</label><div class="chips" id="mk">'+kinds.map(function(k){return '<button type="button" class="chipb'+(k[0]===k0?' on':'')+'" data-k="'+k[0]+'">'+k[1]+'</button>'}).join('')+'</div>':'')+
+    '<label>Para</label><div id="mto"></div>'+
+    '<label for="m1">Título</label><input id="m1" maxlength="100" placeholder="Ej. Reunión de madres y padres">'+
+    '<label for="m2">Mensaje</label><textarea id="m2" rows="5" maxlength="1500" placeholder="Escribe el aviso para las familias"></textarea>'+
+    '<label class="lvopt" style="margin-top:10px"><input type="checkbox" id="m3" checked><span>Pedir que confirmen con «✅ Enterado»</span></label>'+
+    '<div class="row" style="margin-top:16px"><button class="btn ghost" data-act="close" style="margin-left:auto">Cancelar</button><button class="btn" id="mok">Enviar</button></div>');
+  var kind=k0;
+  var draw=function(){var h='';
+    if(kind==='general')h='<label class="lvopt"><input type="radio" name="mall" value="1" checked><span>Todo el colegio</span></label><label class="lvopt"><input type="radio" name="mall" value="0"><span>Solo algunos grados</span></label><div class="lvgrid" id="mgs" hidden>'+schGrades().map(function(g){return '<label class="lvopt"><input type="checkbox" value="'+esc(g.id)+'"><span>'+esc(gName(g))+'</span></label>'}).join('')+'</div>';
+    else if(kind==='guia')h='<div class="lvgrid">'+tg.guia.map(function(x){return '<label class="lvopt"><input type="checkbox" class="mto" value="'+esc(x.gid)+'" checked><span>'+esc(x.label)+'</span></label>'}).join('')+'</div>';
+    else h='<div class="lvgrid">'+tg.materia.map(function(x,i){return '<label class="lvopt"><input type="checkbox" class="mto" value="'+i+'"'+(tg.materia.length===1?' checked':'')+'><span>'+esc(x.label)+'</span></label>'}).join('')+'</div>';
+    $('#mto').innerHTML=h;
+    Array.prototype.forEach.call(document.querySelectorAll('input[name=mall]'),function(r){r.onchange=function(){$('#mgs').hidden=r.value==='1'&&r.checked}});
+  };
+  draw();
+  Array.prototype.forEach.call(document.querySelectorAll('#mk .chipb'),function(b){b.onclick=function(){kind=b.dataset.k;Array.prototype.forEach.call(document.querySelectorAll('#mk .chipb'),function(x){x.classList.toggle('on',x===b)});draw()}});
+  $('#mok').onclick=function(){
+    var t=$('#m1').value.trim(),x=$('#m2').value.trim(),ack=$('#m3').checked,b=this,sends=[];
+    if(!t){toast('Escribe el título.');$('#m1').focus();return}if(!x){toast('Escribe el mensaje.');$('#m2').focus();return}
+    if(kind==='general'){var all=document.querySelector('input[name=mall]:checked').value==='1',gs=Array.prototype.map.call(document.querySelectorAll('#mgs input:checked'),function(i){return i.value});
+      if(!all&&!gs.length){toast('Elige al menos un grado.');return}sends.push({kind:'general',all:all,gradeIds:gs})}
+    else{var pk=Array.prototype.map.call(document.querySelectorAll('.mto:checked'),function(i){return i.value});if(!pk.length){toast('Elige a quién va.');return}
+      if(kind==='guia')sends.push({kind:'guia',gradeIds:pk});
+      else{var by={};pk.forEach(function(i){var z=tg.materia[+i];(by[z.sjName+'|'+z.sj]=by[z.sjName+'|'+z.sj]||{kind:'materia',subjectId:z.sj,gradeIds:[]}).gradeIds.push(z.gid)});sends=Object.keys(by).map(function(k){return by[k]})}}
+    b.disabled=true;var n=0;
+    seqAll(sends,function(o){return schAct('msg.send',Object.assign({title:t,text:x,needsAck:ack},o)).then(function(r){n+=(r&&r.families)||0})}).then(function(){closeModal();toast('Comunicado enviado a '+n+' '+plural(n,'familia','familias')+' 📣')},function(){b.disabled=false});
+  };
+}
+function msgDetail(id){
+  var m=schMsgs().filter(function(x){return x.id===id})[0];if(!m)return;
+  var show=function(list){var ok=list.filter(function(x){return x.ack}),no=list.filter(function(x){return !x.ack});
+    openModal('<h3>✅ Confirmaciones</h3><p class="muted" style="margin:0">'+esc(m.title)+' · '+ok.length+' de '+list.length+' alumnos</p>'+
+      '<h4>Confirmaron · '+ok.length+'</h4>'+(ok.length?ok.map(function(x){return '<div class="item"><span>🟢</span><div class="grow"><div class="title">'+esc(x.student)+'</div><div class="muted">'+esc(x.ack.name||'')+(x.ack.rel?' ('+esc(String(x.ack.rel).toLowerCase())+')':'')+' · '+esc(ago(x.ack.at))+' · '+esc(gName(schGrade(x.gradeId)))+'</div></div></div>'}).join(''):'<div class="empty">Nadie todavía.</div>')+
+      '<h4>Faltan · '+no.length+'</h4>'+(no.length?no.map(function(x){return '<div class="item"><span>⏳</span><div class="grow"><div class="title">'+esc(x.student)+'</div><div class="muted">'+esc(gName(schGrade(x.gradeId)))+'</div></div></div>'}).join(''):'<div class="empty">¡Todas las familias confirmaron! 🎉</div>')+
+      '<div class="row" style="margin-top:14px"><button class="btn ghost" data-act="close" style="margin-left:auto">Cerrar</button></div>')};
+  if(SAMPLE){var s=SCH();show(s.members.filter(function(x){return m.gradeIds.indexOf(x.gradeId)>=0}).map(function(x){return {student:x.name,gradeId:x.gradeId,ack:m.acks[x.id]||null}}));return}
+  openModal('<div class="empty">Cargando…</div>');schAct('msg.detail',{id:id}).then(function(r){show((r&&r.list)||[])},function(){closeModal()});
 }
 
 /* ---------- Eventos ---------- */
