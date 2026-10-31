@@ -11,25 +11,25 @@
   "theme_color": "#0e3a73",
   "icons": [
     {
-      "src": "icons/logo-192.png",
+      "src": "logo-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "icons/logo-512.png",
+      "src": "logo-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "icons/logo-maskable-192.png",
+      "src": "logo-maskable-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "maskable"
     },
     {
-      "src": "icons/logo-maskable-512.png",
+      "src": "logo-maskable-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
@@ -42,7 +42,7 @@
       "url": "./index.html#progress",
       "icons": [
         {
-          "src": "icons/logo-192.png",
+          "src": "logo-192.png",
           "sizes": "192x192"
         }
       ]
@@ -53,7 +53,7 @@
       "url": "./index.html#study",
       "icons": [
         {
-          "src": "icons/logo-192.png",
+          "src": "logo-192.png",
           "sizes": "192x192"
         }
       ]
@@ -64,7 +64,7 @@
       "url": "./index.html#tasks",
       "icons": [
         {
-          "src": "icons/logo-192.png",
+          "src": "logo-192.png",
           "sizes": "192x192"
         }
       ]

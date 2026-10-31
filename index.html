@@ -7,10 +7,10 @@
 <meta name="theme-color" content="#0e3a73">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="StudyFlow">
-<link rel="manifest" href="manifest.json?v=41">
-<link rel="icon" type="image/png" sizes="32x32" href="icons/logo-32.png">
-<link rel="icon" type="image/png" sizes="192x192" href="icons/logo-192.png">
-<link rel="apple-touch-icon" href="icons/logo-apple-180.png">
+<link rel="manifest" href="manifest.json?v=42">
+<link rel="icon" type="image/png" sizes="32x32" href="logo-32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="logo-192.png">
+<link rel="apple-touch-icon" href="logo-apple-180.png">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700&display=swap">
 <style>
@@ -1901,7 +1901,7 @@ function remCollect(due){
 function fireNotice(title,body){
   toast('🔔 '+title+(body?' · '+body:''));
   try{if('Notification' in window&&Notification.permission==='granted'){
-    if(navigator.serviceWorker&&navigator.serviceWorker.controller)navigator.serviceWorker.ready.then(function(reg){reg.showNotification(title,{body:body,icon:'icons/logo-192.png'})}).catch(function(){new Notification(title,{body:body})});
+    if(navigator.serviceWorker&&navigator.serviceWorker.controller)navigator.serviceWorker.ready.then(function(reg){reg.showNotification(title,{body:body,icon:'logo-192.png'})}).catch(function(){new Notification(title,{body:body})});
     else new Notification(title,{body:body});
   }}catch(e){}
 }
