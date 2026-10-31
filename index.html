@@ -7,10 +7,10 @@
 <meta name="theme-color" content="#0e3a73">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="StudyFlow">
-<link rel="manifest" href="manifest.json">
-<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
-<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
-<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="manifest" href="manifest.json?v=41">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/logo-32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/logo-192.png">
+<link rel="apple-touch-icon" href="icons/logo-apple-180.png">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700&display=swap">
 <style>
@@ -766,6 +766,12 @@ header small .hs{display:block;font-size:13px;opacity:.92;margin:2px 0 1px;line-
 .pfm{display:grid;gap:8px;margin-top:10px;font-size:14px}
 .pfrow{border:1px solid var(--line);border-radius:14px;padding:10px 12px;margin-top:10px}
 .btn.danger-t{color:var(--bad)}
+nav .nic{position:relative;display:inline-flex}
+nav .nbadge{position:absolute;top:-3px;right:4px;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:#e5484d;color:#fff;font-size:11px;font-weight:700;line-height:18px;text-align:center;box-shadow:0 0 0 2px var(--card);pointer-events:none}
+@media (min-width:900px){nav .nbadge{top:-7px;right:-9px}}
+.prem-hero{background:linear-gradient(135deg,var(--fam-soft),var(--card))}
+.prem-e{font-size:40px;line-height:1}
+.badge.newb{background:#e5484d;color:#fff;vertical-align:middle}
 </style>
 </head>
 <body>
@@ -790,9 +796,9 @@ var LKEY='studyflow.v1';
 var COLORS=['#1f4e8c','#0e7490','#15803d','#c2410c','#b91c1c','#be185d','#6d28d9','#a16207'];
 var DAYS=['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
 var DEF={goal:70,pomo:25,brk:5,max:100,weekly:300,name:'',grade:''};
-var SNAV=[['home','home','Inicio'],['cal','calendar','Calendario'],['study','sparkle','Estudiar'],['groups','trophy','Retos'],['casa','casa','Casa'],['progress','trend','Progreso']];
+var SNAV=[['home','home','Inicio'],['cal','calendar','Calendario'],['study','sparkle','Estudiar'],['groups','trophy','Retos'],['casa','casa','Casa'],['premios','gift','Premios'],['progress','trend','Progreso']];
 var PNAV=[['p_home','trend','Resumen'],['p_act','clipboard','Actividad'],['p_help','heart','Apoyar'],['p_casa','casa','Casa'],['p_rewards','gift','Premios']];
-var titles={cal:'Calendario',s_home:'Resumen',s_cal:'Calendario',s_grades:'Grados',s_tem:'Temario',s_students:'Alumnos',s_staff:'Personal',s_profile:'Colegio',t_cal:'Calendario',t_grades:'Estudiantes',n_send:'Enfermería',n_hist:'Historial',pl_home:'Colegios',pl_dash:'Dashboard',pl_fam:'Familias',s_dash:'Dashboard',t_dash:'Mis materias',home:'Inicio',tasks:'Tareas',subjects:'Temario y materias',grades:'Notas',study:'Estudio',tutor:'Tutor de IA',groups:'Retos',casa:'Tareas de la casa',p_casa:'Tareas de la casa',progress:'Progreso',
+var titles={cal:'Calendario',s_home:'Resumen',s_cal:'Calendario',s_grades:'Grados',s_tem:'Temario',s_students:'Alumnos',s_staff:'Personal',s_profile:'Colegio',t_cal:'Calendario',t_grades:'Estudiantes',n_send:'Enfermería',n_hist:'Historial',pl_home:'Colegios',pl_dash:'Dashboard',pl_fam:'Familias',premios:'Premios',s_dash:'Dashboard',t_dash:'Mis materias',home:'Inicio',tasks:'Tareas',subjects:'Temario y materias',grades:'Notas',study:'Estudio',tutor:'Tutor de IA',groups:'Retos',casa:'Tareas de la casa',p_casa:'Tareas de la casa',progress:'Progreso',
   p_home:'Resumen',p_act:'Actividad',p_help:'Apoyar',p_rewards:'Premios'};
 var KINDS={felicitacion:['🎉','Felicitación','star'],libro:['📚','Libro o recurso','book'],consejo:['💡','Ayuda en un tema','bulb'],recordatorio:['⏰','Recordatorio','clock'],premio:['🎁','Premio','gift'],pro:['🚀','Plan Pro','star'],solicitud:['🙋','Solicitud','hand']};
 
@@ -1777,13 +1783,13 @@ function render(){
   var act=navActive();
   nav.hidden=false;nav.className=MODE==='parent'?'parent':isSchoolMode()?'school':'';
   nav.innerHTML='<div class="brand"><span class="logo">'+logoSvg()+'</span><span>Study<span class="wm">Flow</span><small>'+modeLabel()+'</small></span></div>'+
-    items.map(function(x){return '<button data-v="'+x[0]+'" class="'+(x[0]===act?'active':'')+'"'+(x[0]===act?' aria-current="page"':'')+'>'+ic(x[1])+'<span>'+x[2]+'</span></button>'}).join('');
+    items.map(function(x){return '<button data-v="'+x[0]+'" class="'+(x[0]===act?'active':'')+'"'+(x[0]===act?' aria-current="page"':'')+'>'+navIc(x)+'<span>'+x[2]+'</span></button>'}).join('');
   chip.hidden=false;
   if(isSchoolMode()){var _me=schMe();chip.innerHTML='<span class="ava">'+(MODE==='platform'?'🌐':_me?(STAFF_ROLES[_me.role]||['🏫'])[0]:'🏫')+'</span><span class="nm">'+esc(MODE==='platform'?'Plataforma':_me?_me.name:'Colegio')+'</span>'+ic('gear')}
   else chip.innerHTML=MODE==='parent'?'<span class="ava">'+esc(parentAvatar())+'</span><span class="nm">'+esc(parentName())+'</span>'+ic('gear'):'<span class="ava">'+esc(studentAvatar())+'</span><span class="nm">'+esc(nameOf())+'</span>'+ic('gear');
   $('#hTitle').textContent=viewTitle();
   $('#fab').style.display=fabOn()?'block':'none';
-  var fn={cal:vCal,subj:vSubj,s_home:vSchHome,s_cal:vSchCal,s_grades:vSchGrades,s_tem:vSchTemario,s_students:vSchStudents,s_staff:vSchStaff,s_profile:vSchProfile,t_cal:vSchCal,t_grades:vTeacherGrades,n_send:vNurseSend,n_hist:vNurseHist,pl_home:vPlat,pl_dash:vPlatDash,pl_fam:vPlatFam,s_dash:vSchDash,t_dash:vTeacherDash,home:vHomeV2,tasks:vTasks,subjects:vSubjects,grades:vGrades,study:vStudy,tutor:vTutor,groups:vGroups,casa:vCasa,progress:vProgressB,
+  var fn={cal:vCal,subj:vSubj,s_home:vSchHome,s_cal:vSchCal,s_grades:vSchGrades,s_tem:vSchTemario,s_students:vSchStudents,s_staff:vSchStaff,s_profile:vSchProfile,t_cal:vSchCal,t_grades:vTeacherGrades,n_send:vNurseSend,n_hist:vNurseHist,pl_home:vPlat,pl_dash:vPlatDash,pl_fam:vPlatFam,premios:vPremios,s_dash:vSchDash,t_dash:vTeacherDash,home:vHomeV2,tasks:vTasks,subjects:vSubjects,grades:vGrades,study:vStudy,tutor:vTutor,groups:vGroups,casa:vCasa,progress:vProgressB,
     p_home:pHome,p_casa:pCasa,p_act:pAct,p_help:pHelp,p_rewards:pRewards}[view];
   if(typeof preRenderHook==='function')preRenderHook();
   $('#view').innerHTML=banner()+hubTabs()+parentActBar()+(view==='p_act'?'':'')+fn()+parentTemarioCard();
@@ -1895,7 +1901,7 @@ function remCollect(due){
 function fireNotice(title,body){
   toast('🔔 '+title+(body?' · '+body:''));
   try{if('Notification' in window&&Notification.permission==='granted'){
-    if(navigator.serviceWorker&&navigator.serviceWorker.controller)navigator.serviceWorker.ready.then(function(reg){reg.showNotification(title,{body:body,icon:'icons/icon-192.png'})}).catch(function(){new Notification(title,{body:body})});
+    if(navigator.serviceWorker&&navigator.serviceWorker.controller)navigator.serviceWorker.ready.then(function(reg){reg.showNotification(title,{body:body,icon:'icons/logo-192.png'})}).catch(function(){new Notification(title,{body:body})});
     else new Notification(title,{body:body});
   }}catch(e){}
 }
@@ -6666,12 +6672,50 @@ function platSchDelModal(id){
   };
 }
 
+/* ---------- Números en el menú de abajo: Casa y Actividades ---------- */
+function navCount(v){
+  try{
+    if(v==='casa'&&MODE==='student'){return choresOf(sidOf()).filter(function(c){return choreToday(c)&&!choreDone(c)}).length}
+    if(v==='p_casa'&&MODE==='parent'&&curSid){var d0=ymd(new Date()),d1=shift(d0,-1);return choresOf(curSid).filter(function(c){return [d0,d1].some(function(d){return onDay(c,d)&&choreDone(c,d)&&!choreCheck(c,d)})}).length}
+    if(v==='p_rewards'&&MODE==='parent'&&curSid){return REWARDS().filter(function(r){return r.student===curSid&&!r.delivered&&rProgress(r).ok}).length}
+    if(v==='premios'&&MODE==='student'){var seen=rwSeen();return myRewards().filter(function(r){return !r.delivered&&(rProgress(r).ok||!seen[r.id])}).length}
+    if((v==='cal'&&MODE==='student')||(v==='p_act'&&MODE==='parent'&&curSid)){return (S.tasks||[]).filter(function(t){return !t.done&&t.due&&diffDays(t.due)<=2}).length}
+  }catch(e){}
+  return 0;
+}
+var PREM={visit:-1,fresh:{}};
+function premCapture(){if(PREM.visit!==RVISIT){var seen=rwSeen();PREM.visit=RVISIT;PREM.fresh={};myRewards().forEach(function(r){if(!seen[r.id])PREM.fresh[r.id]=1})}rwMarkSeen()}
+function vPremios(){
+  premCapture();var rw=myRewards();
+  var won=rw.filter(function(r){return r.delivered||rProgress(r).ok}),wait=won.filter(function(r){return !r.delivered}),go=rw.filter(function(r){return !r.delivered&&!rProgress(r).ok});
+  var row=function(r){var h=rewardRow(r);return PREM.fresh[r.id]?h.replace('<div class="title">','<div class="title"><span class="badge newb">Nuevo</span> '):h};
+  var out='<div class="card prem-hero"><div class="row" style="gap:14px;align-items:center"><span class="prem-e">🎁</span><div class="grow"><h2 style="margin:0">Mis premios</h2><p class="muted" style="margin:4px 0 0">Tu familia pone metas y premios. Cuando cumples una meta, el premio es tuyo.</p></div></div>'+
+    '<div class="grid3" style="margin-top:12px"><div class="mini"><b>'+won.length+'</b><span>ganados</span></div><div class="mini"><b>'+wait.length+'</b><span>por recibir</span></div><div class="mini"><b>'+go.length+'</b><span>en camino</span></div></div></div>';
+  if(!famOn())return out+'<div class="card"><div class="empty">Cuando te unas a tu familia, aquí verás los premios que te pongan.</div></div>';
+  if(wait.length)out+='<div class="card"><h2>🎉 ¡Los ganaste!</h2><p class="muted" style="margin-top:-4px">Tu familia te los entregará pronto.</p>'+wait.map(row).join('')+'</div>';
+  out+='<div class="card"><h2>🎯 En camino</h2>'+(go.length?go.map(row).join(''):'<div class="empty">No tienes premios en camino. Pídele a tu familia que te ponga una meta.</div>')+'</div>';
+  var del=won.filter(function(r){return r.delivered});
+  if(del.length)out+='<div class="card"><h2>🏆 Ya recibidos</h2>'+del.map(rewardRow).join('')+'</div>';
+  return out+badgesCard();
+}
+var RVISIT=0,PTOAST={};
+function rwKey(){return 'sf.rwseen.'+sidOf()}
+function rwSeen(){try{return JSON.parse(lsGet(rwKey())||'{}')||{}}catch(e){return {}}}
+function rwMarkSeen(){var s=rwSeen(),ch=false;myRewards().forEach(function(r){if(!s[r.id]){s[r.id]=1;ch=true}});if(ch)try{lsSet(rwKey(),JSON.stringify(s))}catch(e){}}
+function navIc(x){
+  if(x[0]==='premios'&&MODE==='student'&&view==='premios')premCapture();
+  if(x[0]==='premios'&&MODE==='student'&&view!=='premios'&&typeof famOn==='function'&&famOn()){var sn=rwSeen(),nw=myRewards().filter(function(r){return !r.delivered&&!sn[r.id]&&!PTOAST[r.id]});
+    if(nw.length){nw.forEach(function(r){PTOAST[r.id]=1});setTimeout(function(){toast(nw.length===1?'🎁 Tu familia te puso un premio: '+nw[0].title:'🎁 Tienes '+nw.length+' premios nuevos. Míralos en Premios.')},600)}}
+  var n=navCount(x[0]),tip=!n?'':x[0]==='p_casa'?n+' por revisar':x[0]==='casa'?n+' pendientes hoy':x[0]==='p_rewards'?n+' premios logrados por entregar':x[0]==='premios'?n+' premios nuevos o ganados':n+' por entregar pronto o vencidas';
+  return '<span class="nic">'+ic(x[1])+(n?'<b class="nbadge" aria-label="'+tip+'" title="'+tip+'">'+(n>9?'9+':n)+'</b>':'')+'</span>';
+}
+
 /* ---------- Eventos ---------- */
 document.addEventListener('click',function(e){
   var c=e.target.closest('[data-c]');
   if(c&&c.parentNode.id==='colors'){pickedColor=c.dataset.c;var all=c.parentNode.children;for(var i=0;i<all.length;i++)all[i].classList.toggle('sel',all[i]===c);return}
   var el=e.target.closest('[data-act],[data-v]');if(!el)return;
-  if(el.dataset.v){view=el.dataset.v;render();window.scrollTo(0,0);return}
+  if(el.dataset.v){view=el.dataset.v;if(view==='premios')RVISIT++;render();window.scrollTo(0,0);return}
   var a=el.dataset.act,id=el.dataset.id;
   if(el.type==='checkbox')return;
   if(/^grp-/.test(a)){grpAction(a,id,el);return}
