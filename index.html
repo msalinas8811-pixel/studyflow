@@ -776,6 +776,13 @@ nav .nbadge{position:absolute;top:-3px;right:4px;min-width:18px;height:18px;padd
 .fmsg.need{border-color:var(--fam);box-shadow:inset 3px 0 0 var(--fam)}
 .fmsg-e{font-size:24px;line-height:1.1}
 .fmsg-t{white-space:pre-wrap;font-size:14px;line-height:1.45}
+.hnav{flex-basis:100%;display:flex;gap:6px}
+.hnav[hidden]{display:none}
+.hnav button{flex:1 1 0;min-width:0;justify-content:center;white-space:nowrap;display:inline-flex;align-items:center;gap:5px;border:0;border-radius:99px;padding:8px 8px;font:inherit;font-size:13px;font-weight:600;cursor:pointer;background:rgba(255,255,255,.16);color:#fff;box-shadow:inset 0 0 0 1px rgba(255,255,255,.25)}
+.hnav button .i{width:18px;height:18px}
+.hnav button.on{background:#fff;color:var(--hdr,#0e3a73);box-shadow:none}
+.hnav button:hover:not(.on){background:rgba(255,255,255,.26)}
+@media (min-width:640px){.hnav button{flex:0 0 auto;padding:8px 14px}}
 </style>
 </head>
 <body>
@@ -1114,7 +1121,7 @@ function enterSchool(e){
   unsubAll();schReset();
   DB=null;CLOUD='on';AUTH.st='in';
   MODE=e.role==='teacher'?'teacher':e.role==='nurse'?'nurse':'school';
-  view=navItems()[0][0];lsSet('sf.panel','school:'+e.schoolId);
+  view=(typeof headNav==='function'&&headNav()[0]||navItems()[0])[0];lsSet('sf.panel','school:'+e.schoolId);
   SCD={id:e.schoolId,perf:{},profile:null,grades:[],staff:[],reqs:[],members:[],nurse:[],events:{},evals:{},checks:{},msgs:[],me:null,staffId:e.staffId};
   var R=F().root,base='schools/'+e.schoolId,admin=e.role==='admin'||e.role==='director';
   var err=function(x){if(String(x&&x.code).indexOf('permission')>=0){toast('Ya no tienes acceso a este colegio.');AUTH.prof.staff=staffEntries().filter(function(z){return z.schoolId!==e.schoolId});lsSet('sf.panel',null);pickPanel(AUTH.prof)}};
@@ -1789,8 +1796,8 @@ function render(){
   }
   document.body.classList.toggle('parent',MODE==='parent');document.body.classList.toggle('school',isSchoolMode());
   var items=navItems();
-  if(!items.some(function(x){return x[0]===navActive()}))view=items[0][0];
-  var act=navActive();
+  var _hn=headNav();if(!items.concat(_hn).some(function(x){return x[0]===navActive()}))view=(_hn[0]||items[0])[0];
+  var act=navActive();headNavRender(_hn,act);
   nav.hidden=false;nav.className=MODE==='parent'?'parent':isSchoolMode()?'school':'';
   nav.innerHTML='<div class="brand"><span class="logo">'+logoSvg()+'</span><span>Study<span class="wm">Flow</span><small>'+modeLabel()+'</small></span></div>'+
     items.map(function(x){return '<button data-v="'+x[0]+'" class="'+(x[0]===act?'active':'')+'"'+(x[0]===act?' aria-current="page"':'')+'>'+navIc(x)+'<span>'+x[2]+'</span></button>'}).join('');
@@ -4748,7 +4755,7 @@ function hubTabs(){
 }
 function navItems(){
   if(MODE==='parent')return PNAV;
-  if(MODE==='school')return [['s_dash','chart','Dashboard'],['s_home','home','Resumen'],['s_cal','calendar','Calendario'],['s_grades','book','Grados'],['s_tem','bookopen','Temario'],['s_students','student','Alumnos'],['s_msg','mail','Avisos'],['s_staff','users','Personal'],['s_profile','school','Colegio']];
+  if(MODE==='school')return [['s_cal','calendar','Calendario'],['s_grades','book','Grados'],['s_tem','bookopen','Temario'],['s_students','student','Alumnos'],['s_staff','users','Personal'],['s_profile','school','Colegio']];
   if(MODE==='teacher')return [['t_dash','chart','Mis materias'],['t_cal','calendar','Calendario'],['t_grades','student','Estudiantes'],['t_msg','mail','Avisos']];
   if(MODE==='nurse')return [['n_send','nurse','Avisos'],['n_hist','list','Historial']];
   if(MODE==='platform')return [['pl_dash','chart','Dashboard'],['pl_home','school','Colegios'],['pl_fam','users','Familias']];
@@ -5973,7 +5980,7 @@ function demoSetRole(r){
   if(!demo.sch)demo.sch=seedSchool();
   MODE=r;closeModal();stopTimer();
   if(r==='student'||r==='parent'){S=demo.S;curSid='demo';if(r==='student')schoolSync()}
-  view=navItems()[0][0];render();window.scrollTo(0,0);
+  view=(headNav()[0]||navItems()[0])[0];render();window.scrollTo(0,0);
 }
 
 /* ---------- Quién agregó cada actividad y cambios de la familia ---------- */
@@ -6734,6 +6741,14 @@ function navIc(x){
     if(nw.length){nw.forEach(function(r){PTOAST[r.id]=1});setTimeout(function(){toast(nw.length===1?'🎁 Tu familia te puso un premio: '+nw[0].title:'🎁 Tienes '+nw.length+' premios nuevos. Míralos en Premios.')},600)}}
   var n=navCount(x[0]),tip=!n?'':x[0]==='p_casa'?n+' por revisar':x[0]==='casa'?n+' pendientes hoy':x[0]==='p_rewards'?n+' premios logrados por entregar':x[0]==='p_home'?n+' comunicados por leer o confirmar':x[0]==='premios'?n+' premios nuevos o ganados':n+' por entregar pronto o vencidas';
   return '<span class="nic">'+ic(x[1])+(n?'<b class="nbadge" aria-label="'+tip+'" title="'+tip+'">'+(n>9?'9+':n)+'</b>':'')+'</span>';
+}
+
+/* Panel del colegio: Dashboard, Resumen y Avisos van arriba, debajo del idioma y el avatar */
+function headNav(){return MODE==='school'?[['s_dash','chart','Dashboard'],['s_home','home','Resumen'],['s_msg','mail','Avisos']]:[]}
+function headNavRender(l,act){
+  var h=document.getElementById('hNav');
+  if(!h){h=document.createElement('div');h.id='hNav';h.className='hnav';var sub=document.getElementById('hSub');sub.parentNode.insertBefore(h,sub)}
+  h.hidden=!l.length;h.innerHTML=l.map(function(x){return '<button data-v="'+x[0]+'" class="'+(x[0]===act?'on':'')+'"'+(x[0]===act?' aria-current="page"':'')+'>'+ic(x[1])+'<span>'+x[2]+'</span></button>'}).join('')+'';
 }
 
 
