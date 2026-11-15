@@ -964,7 +964,7 @@ function ask(msg,yes,fn,danger){
   $('#askok').onclick=function(){closeModal();fn()};
 }
 var toastT=null;
-function toast(msg){var t=$('#toast');t.textContent=tr(msg);t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(function(){t.classList.remove('show')},2800)}
+function toast(msg,ms){var t=$('#toast');t.textContent=tr(msg);t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(function(){t.classList.remove('show')},ms||2800)}
 function notify(t){toast(t)}
 
 /* ---------- Nube: base de datos compartida y IA ---------- */
@@ -6293,7 +6293,7 @@ function tlAskModal(sid,mode){
     var done=function(tok){var l=appLink()+'?tt='+tok;try{lsSet(tlKey(sid),JSON.stringify({link:l,teacher:tn,exp:Date.now()+29*864e5,tok:tok}))}catch(e){}tlShowLink(s,l,tn)};
     if(SAMPLE){var tok='demotl'+uid()+uid();(demo.tlinks||(demo.tlinks={}))[tok]={student:curSid,subjectId:sid,subject:s.name,studentName:firstName(),teacherName:tn,askedBy:parentName(),topicsN:0,tasksN:0};done(tok);return}
     if(!F()||!F().temLink){toast('Esta función se usa con las cuentas de la familia.');b.disabled=false;return}
-    F().temLink('create',{studentId:curSid,subjectId:sid,subject:s.name,teacherName:tn,askedBy:parentName()}).then(function(r){done(r.token)},function(e){b.disabled=false;toast(String(e&&e.code||'').indexOf('limit')>=0?'Hoy ya se crearon muchos links. Intenta mañana.':'No se pudo crear el link. Revisa tu conexión.')});
+    F().temLink('create',{studentId:curSid,subjectId:sid,subject:s.name,teacherName:tn,askedBy:parentName()}).then(function(r){done(r.token)},function(e){b.disabled=false;toast(tlErr(e),6000)});
   };
 }
 function tlMsg(s,link,teacher){return 'Hola'+(teacher?' '+teacher:'')+', soy '+parentName()+', de '+firstName()+'. ¿Me ayuda '+(TLMODE?'poniendo las notas (exámenes, laboratorios, proyectos…) de '+s.name+' en este link?':'cargando el temario, las actividades y las notas de '+s.name+' en este link?')+' No necesita cuenta ni instalar nada: '+link}
@@ -6422,6 +6422,17 @@ function applyTLink(T,op){
     var nm=String(x&&x.name||'').trim().slice(0,80),mx=+x.max||10,sc=+x.score,dd=/^\d{4}-\d{2}-\d{2}$/.test(x.date||'')?x.date:'';if(!nm||!dd||!(sc>=0&&sc<=mx))return;
     T.grades.push({id:gid2,subject:sj,name:nm,score:sc,max:mx,weight:+x.pct||1,date:dd,official:true,type:String(x.type||'').slice(0,40),tri:+x.tri||1,by:by,comment:String(x.comment||'').slice(0,200),viaLink:true});ch=true});
   return ch;
+}
+
+function tlErr(e){var c=String(e&&e.code||'');
+  if(c.indexOf('limit')>=0)return 'Hoy ya se crearon muchos links. Intenta mañana.';
+  if(c.indexOf('unauthenticated')>=0)return 'Tu sesión venció. Cierra sesión y vuelve a entrar.';
+  if(c.indexOf('solo encargados')>=0||c.indexOf('permission-denied')>=0)return 'Solo un encargado (mamá, papá…) puede crear el link, no la cuenta del estudiante.';
+  if(c.indexOf('sin familia')>=0)return 'Tu cuenta no está unida a una familia.';
+  if(c.indexOf('estudiante')>=0)return 'Ese estudiante ya no está en tu familia. Elige otro arriba.';
+  if(c.indexOf('not-found')>=0||c.indexOf('internal')>=0||c.indexOf('unavailable')>=0)return 'El servidor no respondió (falta instalar o habilitar la función del link). Código: '+c.trim();
+  if(!navigator.onLine)return 'No hay internet en este momento.';
+  return 'No se pudo crear el link. Código: '+(c.trim()||'desconocido');
 }
 
 /* ================= Evaluaciones y notas que pone la docente ================= */
