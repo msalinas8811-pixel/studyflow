@@ -5048,7 +5048,8 @@ function vSubj(){
   if(tab==='cal'){var it=stuCalItems(s.id);out+='<div class="card">'+calHtml(it)+calDayList(it,'Nada de '+s.name+' este día.')+'</div>'}
   else if(tab==='tareas'){
     var pend=S.tasks.filter(function(t){return t.subject===s.id&&!t.done}).sort(function(a,b){return a.due<b.due?-1:1}),done=S.tasks.filter(function(t){return t.subject===s.id&&t.done}).sort(function(a,b){return a.due<b.due?1:-1});
-    out+=(par?'<div class="row wrap" style="gap:8px;margin-bottom:12px"><button class="btn famb" data-act="pt-new-subj" data-id="'+esc(s.id)+'" style="flex:1">＋ Asignar actividad</button><button class="btn ghost" data-act="sc-tl-ask" data-id="'+esc(s.id)+'" style="flex:1">📨 Pedir a la docente</button></div>':'')+
+    out+=(par?'<div class="row wrap" style="gap:8px;margin-bottom:12px"><button class="btn famb" data-act="pt-new-subj" data-id="'+esc(s.id)+'" style="flex:1">＋ Asignar actividad</button><button class="btn ghost" data-act="sc-tl-ask" data-id="'+esc(s.id)+'" style="flex:1">📨 Pedir a la docente</button></div>':
+      MODE==='student'&&!s.schoolSubj?'<div class="row wrap" style="gap:8px;margin-bottom:12px"><button class="btn ghost" data-act="sc-tl-ask" data-id="'+esc(s.id)+'" style="flex:1">📨 Pedir actividades a mi docente u otra persona</button></div>':'')+
       '<div class="card"><div class="group">Pendientes · '+pend.length+'</div>'+(pend.length?pend.map(taskRow).join(''):'<div class="empty">'+(par?'No tiene':'No tienes')+' pendientes de '+esc(s.name)+' 🎉</div>')+
       (done.length?'<div class="group">Hechas · '+done.length+'</div>'+done.slice(0,10).map(taskRow).join(''):'')+'</div>';
   }else if(tab==='temario'){
@@ -5056,13 +5057,15 @@ function vSubj(){
     out+='<div class="card">';
     if(!tl.length)out+='<div class="empty">Aún no hay temas de '+esc(s.name)+'.'+(s.schoolSubj?' Aparecerán cuando tu colegio cargue el temario.':'')+'</div>';
     out+=triPill()+topicListHtml(tl,par);
-    out+=(par?'<div class="tlask"><b>¿El colegio no carga el temario aquí?</b><div class="muted">Pídeselo a la docente con un link: lo abre sin cuenta, pega el temario y las actividades, y le llegan a '+esc(firstName())+'.</div><button class="btn famb small" data-act="sc-tl-ask" data-id="'+esc(s.id)+'" style="margin-top:8px">📨 Pedir temario y actividades a la docente</button></div>':'<button class="btn ghost block" data-act="temario" style="margin-top:12px">+ Cargar temario</button>')+'</div>';
+    out+=(par?'<div class="tlask"><b>¿El colegio no carga el temario aquí?</b><div class="muted">Pídeselo a la docente con un link: lo abre sin cuenta, pega el temario y las actividades, y le llegan a '+esc(firstName())+'.</div><button class="btn famb small" data-act="sc-tl-ask" data-id="'+esc(s.id)+'" style="margin-top:8px">📨 Pedir temario y actividades a la docente</button></div>':'<button class="btn ghost block" data-act="temario" style="margin-top:12px">+ Cargar temario</button>'+
+      (MODE==='student'?'<button class="btn ghost block" data-act="sc-tl-ask" data-id="'+esc(s.id)+'" style="margin-top:8px">📨 Pedir el temario por link a mi docente u otra persona</button>':''))+'</div>';
   }else if(tab==='notas'){
     var gs=S.grades.filter(function(g){return g.subject===s.id}).sort(function(a,b){return a.date<b.date?1:-1});
     out+='<div class="card"><div class="row between"><div><div class="muted">Promedio</div><div class="big">'+fmtScore(m.avg)+'</div></div><div class="muted" style="text-align:right">Meta '+fmtScore(S.settings.goal)+'<br>'+trendHtml(trend(s.id))+'</div></div>'+
       (gs.length?gradeList(gs,par):'<div class="empty">'+(par?'Sin notas todavía.':'Sin notas todavía. Toca + para registrar una.')+'</div>')+'</div>'+
       (gs.length?'<div class="card"><h2>📊 Libreta de '+esc(s.name)+'</h2>'+libSubjHtml(s.id)+'</div>':'')+
-      (par?'<div class="tlask"><b>📨 Pedir notas a la docente</b><div class="muted">Envíale un link por WhatsApp: lo abre sin cuenta ni registro, pone las notas con su % y le llegan a '+esc(firstName())+' aquí, en la libreta.</div><button class="btn famb small" data-act="sc-tl-notas" data-id="'+esc(s.id)+'" style="margin-top:8px">📨 Pedir notas de '+esc(s.name)+'</button></div>':'');
+      (par?'<div class="tlask"><b>📨 Pedir notas a la docente</b><div class="muted">Envíale un link por WhatsApp: lo abre sin cuenta ni registro, pone las notas con su % y le llegan a '+esc(firstName())+' aquí, en la libreta.</div><button class="btn famb small" data-act="sc-tl-notas" data-id="'+esc(s.id)+'" style="margin-top:8px">📨 Pedir notas de '+esc(s.name)+'</button></div>':
+      MODE==='student'&&!s.schoolSubj?'<button class="btn ghost block" data-act="sc-tl-notas" data-id="'+esc(s.id)+'" style="margin-top:10px">📨 Pedir mis notas de '+esc(s.name)+' por link</button>':'');
   }else{
     var weak=S.topics.filter(function(t){return t.subject===s.id&&isWeak(t)});
     out+='<div class="studyg">'+
@@ -6181,7 +6184,8 @@ function soloCard(){
   if(MODE!=='student'||typeof AUTH==='undefined'||!AUTH||!AUTH.fam||!AUTH.fam.solo)return '';
   var c=AUTH.fam.code||'';
   return '<div class="card solo"><h2 style="margin:0">'+ic('student')+'Usas StudyFlow por tu cuenta</h2><p class="muted" style="margin:6px 0 0">Todo funciona igual: tus materias, tareas, exámenes y notas. Si quieres que tu mamá, papá u otro encargado te acompañe, que cree su cuenta, elija <b>«Me invitaron a una familia»</b> y escriba este código. No pierdes nada de lo que ya tienes.</p>'+
-    (c?'<div class="codebox">'+esc(c)+'</div><div class="row" style="margin-top:10px;gap:8px"><button class="btn ghost small" data-act="copy-code">Copiar código</button></div>':'')+'</div>';
+    (c?'<div class="codebox">'+esc(c)+'</div><div class="row" style="margin-top:10px;gap:8px"><button class="btn ghost small" data-act="copy-code">Copiar código</button></div>':'')+
+    '<div class="tlask" style="margin-top:14px"><b>📨 ¿Quieres que tu docente te pase las actividades?</b><div class="muted">Crea un link y envíaselo por WhatsApp a tu docente, tutor u otra persona. Lo abre sin cuenta y pone el temario, las tareas, exámenes y notas de una materia; todo te llega aquí.</div><button class="btn small" data-act="sc-tl-spick" style="margin-top:8px">📨 Crear link para pedir actividades</button></div></div>';
 }
 function parentSubjForm(){
   if(MODE!=='parent'||!curSid){toast('Primero elige al estudiante.');return}
@@ -6341,6 +6345,7 @@ function schoolAction(a,id,el){
     case 'sc-tl-ask':tlAskModal(id);break;
     case 'sc-tl-notas':tlAskModal(id,'notas');break;
     case 'sc-tl-pick':tlPickModal();break;
+    case 'sc-tl-spick':tlPickModal(true);break;
     case 'sc-temby':schAct('sch.tri',{by:id}).then(function(){toast(id==='teacher'?'Cada docente puede cargar el temario de sus materias ✅':'El temario lo carga el colegio ✅')});break;
     case 'sc-tnew-unit':var tc1=temCurCtx();if(tc1){setTemCtx(tc1.g,tc1.sj);formLvUnit(null)}break;
     case 'sc-tbulk':var tc2=temCurCtx();if(tc2){setTemCtx(tc2.g,tc2.sj);formTemarioBulk(lvSecs(tc2.g.name,tc2.sj.name),tc2.sj.name)}break;
@@ -6447,7 +6452,9 @@ function temByChips(){
 }
 
 /* ---------- Familia: pedir a la docente el temario y las actividades por un link ---------- */
-function tlKey(sid){return 'sf.tl.'+curSid+'.'+sid}
+function tlSid(){return MODE==='student'?(typeof mySid!=='undefined'&&mySid?mySid:'demo'):curSid}
+function tlAsker(){return MODE==='student'?(nameOf()||'Estudiante'):parentName()}
+function tlKey(sid){return 'sf.tl.'+tlSid()+'.'+sid}
 function tlSaved(sid){try{var x=JSON.parse(lsGet(tlKey(sid))||'null');return x&&x.exp>Date.now()?x:null}catch(e){return null}}
 var TLMODE='';
 function tlAskModal(sid,mode){
@@ -6455,17 +6462,17 @@ function tlAskModal(sid,mode){
   var s=subj(sid);if(!s)return;var sv=tlSaved(sid);
   if(sv){tlShowLink(s,sv.link,sv.teacher);return}
   openModal((TLMODE?'<h3>📨 Pedir notas a la docente</h3><p class="muted" style="margin:0">Se crea un link para la docente de <b>'+esc(s.name)+'</b>. Lo abre sin cuenta ni registro y pone las notas de exámenes, laboratorios, proyectos y otras evaluaciones, con el % de cada una. Las notas le llegan':'<h3>📨 Pedir temario, actividades y notas</h3><p class="muted" style="margin:0">Se crea un link para la docente de <b>'+esc(s.name)+'</b>. Lo abre sin cuenta, pega o sube el temario, pone las actividades y las notas. Todo le llega')+' a '+esc(firstName())+' en la app, con su nombre.</p>'+
-    '<label for="tl1">Nombre de la docente</label><input id="tl1" maxlength="60" value="'+esc(s.teacher||'')+'" placeholder="Ej. Profa. Ruiz">'+
+    '<label for="tl1">'+(MODE==='student'?'¿A quién se lo envías? (docente, tutor u otra persona)':'Nombre de la docente')+'</label><input id="tl1" maxlength="60" value="'+esc(s.teacher||'')+'" placeholder="Ej. Profa. Ruiz">'+
     '<div class="row" style="margin-top:16px"><button class="btn ghost" data-act="close">Cancelar</button><button class="btn famb" id="tlok" style="margin-left:auto">Crear link</button></div>');
   $('#tlok').onclick=function(){
     var tn=$('#tl1').value.trim(),b=this;b.disabled=true;
     var done=function(tok){var l=appLink()+'?tt='+tok;try{lsSet(tlKey(sid),JSON.stringify({link:l,teacher:tn,exp:Date.now()+29*864e5,tok:tok}))}catch(e){}tlShowLink(s,l,tn)};
-    if(SAMPLE){var tok='demotl'+uid()+uid();(demo.tlinks||(demo.tlinks={}))[tok]={student:curSid,subjectId:sid,subject:s.name,studentName:firstName(),teacherName:tn,askedBy:parentName(),topicsN:0,tasksN:0};done(tok);return}
+    if(SAMPLE){var tok='demotl'+uid()+uid();(demo.tlinks||(demo.tlinks={}))[tok]={student:tlSid(),subjectId:sid,subject:s.name,studentName:firstName(),teacherName:tn,askedBy:tlAsker(),topicsN:0,tasksN:0};done(tok);return}
     if(!F()||!F().temLink){toast('Esta función se usa con las cuentas de la familia.');b.disabled=false;return}
     F().temLink('create',{studentId:curSid,subjectId:sid,subject:s.name,teacherName:tn,askedBy:parentName()}).then(function(r){done(r.token)},function(e){b.disabled=false;toast(tlErr(e),6000)});
   };
 }
-function tlMsg(s,link,teacher){return 'Hola'+(teacher?' '+teacher:'')+', soy '+parentName()+', de '+firstName()+'. ¿Me ayuda '+(TLMODE?'poniendo las notas (exámenes, laboratorios, proyectos…) de '+s.name+' en este link?':'cargando el temario, las actividades y las notas de '+s.name+' en este link?')+' No necesita cuenta ni instalar nada: '+link}
+function tlMsg(s,link,teacher){return 'Hola'+(teacher?' '+teacher:'')+', soy '+(MODE==='student'?tlAsker()+(S.settings&&S.settings.grade?', de '+S.settings.grade:''):parentName()+', de '+firstName())+'. ¿Me ayuda '+(TLMODE?'poniendo las notas (exámenes, laboratorios, proyectos…) de '+s.name+' en este link?':'cargando el temario, las actividades y las notas de '+s.name+' en este link?')+' No necesita cuenta ni instalar nada: '+link}
 function tlShowLink(s,link,teacher){
   link=String(link).replace(/&n=1$/,'')+(TLMODE?'&n=1':'');
   openModal('<h3>📨 Link para la docente</h3><p class="muted" style="margin:0">'+esc(s.name)+(teacher?' · '+esc(teacher):'')+'. Sirve 30 días y la docente puede usarlo varias veces, sin cuenta ni registro, para agregar temas, actividades o notas.</p>'+
@@ -6783,7 +6790,10 @@ function libModal(sid){
     (sid?'':libretaTable())+list.map(function(s){return (sid?'':'<h4 style="margin:16px 0 0"><span class="dot" style="background:'+esc(s.color)+'"></span> '+esc(s.name)+'</h4>')+libSubjHtml(s.id)}).join('')+
     '<div class="row" style="margin-top:14px"><button class="btn ghost" data-act="close" style="margin-left:auto">Cerrar</button></div>');
 }
-function tlPickModal(){
+function tlPickModal(all){
+  if(all){openModal('<h3>📨 Pedir por link</h3><p class="muted" style="margin:0">Elige la materia. Se crea un link que tu docente, tutor u otra persona abre sin cuenta ni registro para poner el temario, las actividades y las notas. Todo te llega aquí.</p><div class="eflist" style="margin-top:12px">'+
+    (S.subjects.length?S.subjects.map(function(s){return '<button class="item" data-act="sc-tl-ask" data-id="'+esc(s.id)+'" style="width:100%;text-align:left;cursor:pointer;background:none;border:0"><span class="dot" style="background:'+esc(s.color)+'"></span><div class="grow"><div class="title">'+esc(s.name)+'</div>'+(s.teacher?'<div class="muted">'+esc(s.teacher)+'</div>':'')+'</div>'+ic('chevr')+'</button>'}).join(''):'<div class="empty">Primero agrega tus materias en «Mis materias».</div>')+
+    '</div><div class="row" style="margin-top:14px"><button class="btn ghost" data-act="close" style="margin-left:auto">Cancelar</button></div>');return}
   openModal('<h3>📨 Pedir notas a la docente</h3><p class="muted" style="margin:0">Elige la materia. Se crea un link que la docente abre sin cuenta ni registro para poner las notas de '+esc(firstName())+'.</p><div class="eflist" style="margin-top:12px">'+
     S.subjects.map(function(s){return '<button class="item" data-act="sc-tl-notas" data-id="'+esc(s.id)+'" style="width:100%;text-align:left;cursor:pointer;background:none;border:0"><span class="dot" style="background:'+esc(s.color)+'"></span><div class="grow"><div class="title">'+esc(s.name)+'</div>'+(s.teacher?'<div class="muted">'+esc(s.teacher)+'</div>':'')+'</div>'+ic('chevr')+'</button>'}).join('')+
     '</div><div class="row" style="margin-top:14px"><button class="btn ghost" data-act="close" style="margin-left:auto">Cancelar</button></div>');
