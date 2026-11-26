@@ -7069,7 +7069,7 @@ document.addEventListener('click',function(e){
   switch(a){
     case 'close':closeModal();break;
     case 'auth-tab':AUTH.tab=id;AUTH.err='';render();break;
-    case 'auth-login':case 'auth-signup':case 'auth-google':case 'auth-reset':case 'ob-parent':case 'ob-join':case 'ob-join-parent':authAction(a);break;
+    case 'auth-login':case 'auth-signup':case 'auth-google':case 'auth-reset':case 'ob-parent':case 'ob-join':case 'ob-join-parent':case 'ob-solo':authAction(a);break;
     case 'logout':closeModal();SAMPLE=false;demo=null;F()&&F().signOut&&F().signOut();break;
     case 'fam-code':showFamilyCode();break;
     case 'copy-code':if(AUTH.fam&&AUTH.fam.code)copyText(AUTH.fam.code,'Código copiado ✅');break;
