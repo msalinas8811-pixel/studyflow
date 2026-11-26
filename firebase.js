@@ -47,14 +47,15 @@ if(!cfg.apiKey||/PEGA|TU_/.test(cfg.apiKey)){
   const CH='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   const newCode=()=>Array.from(crypto.getRandomValues(new Uint8Array(6))).map(b=>CH[b%CH.length]).join('');
 
-  async function createFamily(name,person,rel){
-    const uid=auth.currentUser.uid,fid=doc(collection(fs,'families')).id;
+  /* role 'student': el estudiante usa la app por su cuenta (familia propia que después pueden unirse a acompañar) */
+  async function createFamily(name,person,rel,role,grade){
+    const uid=auth.currentUser.uid,fid=doc(collection(fs,'families')).id,solo=role==='student';
     let code=newCode();
     for(let i=0;i<5;i++){const c=await getDoc(doc(fs,'codes',code));if(!c.exists())break;code=newCode()}
-    await setDoc(doc(fs,'families',fid),{name,owner:uid,code,createdAt:Date.now()});
-    await setDoc(doc(fs,'families',fid,'members',uid),{role:'parent',name:person,rel:rel||'',joinedAt:Date.now()});
+    await setDoc(doc(fs,'families',fid),{name,owner:uid,code,createdAt:Date.now(),solo});
+    await setDoc(doc(fs,'families',fid,'members',uid),solo?{role:'student',name:person,code,rel:'',joinedAt:Date.now()}:{role:'parent',name:person,rel:rel||'',joinedAt:Date.now()});
     await setDoc(doc(fs,'codes',code),{familyId:fid,owner:uid});
-    const prof={familyId:fid,role:'parent',name:person,rel:rel||''};
+    const prof=solo?{familyId:fid,role:'student',name:person,grade:grade||''}:{familyId:fid,role:'parent',name:person,rel:rel||''};
     await setDoc(doc(fs,'users',uid),prof);
     return prof;
   }
@@ -65,6 +66,8 @@ if(!cfg.apiKey||/PEGA|TU_/.test(cfg.apiKey)){
     await setDoc(doc(fs,'families',fid,'members',uid),{role,name:person,code,rel:role==='parent'?(rel||''):'',joinedAt:Date.now()});
     const prof={familyId:fid,role,name:person,grade:grade||''};if(role==='parent')prof.rel=rel||'';
     await setDoc(doc(fs,'users',uid),prof);
+    // Si el estudiante usaba la app por su cuenta, el primer encargado que se une queda como responsable de la familia
+    if(role==='parent'){try{const f=await getDoc(doc(fs,'families',fid));if(f.exists()&&f.data().solo===true)await updateDoc(doc(fs,'families',fid),{owner:uid,solo:false})}catch(e){}}
     return prof;
   }
 
