@@ -851,21 +851,36 @@ nav button .nic .nbadge{position:absolute!important;right:12px;top:50%;transform
 @media (min-width:900px){
   body{padding-left:260px!important}
   nav{left:14px!important;top:14px!important;bottom:14px!important;right:auto!important;width:232px!important;border-radius:26px!important;
-    padding:18px 12px!important;flex-direction:column!important;gap:4px!important;overflow-y:auto;transform:none!important;margin:0!important;max-width:none!important}
+    padding:18px 12px!important;flex-direction:column!important;justify-content:flex-start!important;gap:4px!important;overflow-y:auto;transform:none!important;margin:0!important;max-width:none!important}
   .hmenu{display:none!important}
 }
-/* Celular y tableta: el menú sale por la izquierda */
+/* Celular y tableta: barra de cristal horizontal abajo */
 @media (max-width:899.98px){
-  body{padding-bottom:calc(24px + env(safe-area-inset-bottom))!important}
-  nav{top:calc(10px + env(safe-area-inset-top,0px))!important;bottom:calc(10px + env(safe-area-inset-bottom))!important;left:10px!important;right:auto!important;
-    width:min(280px,84vw)!important;max-width:none!important;margin:0!important;border-radius:26px!important;padding:16px 12px!important;
-    flex-direction:column!important;justify-content:flex-start!important;gap:4px!important;overflow-y:auto!important;overflow-x:hidden!important;z-index:35!important;
-    transform:translateX(calc(-100% - 24px));visibility:hidden;transition:transform .34s var(--ease-drawer,cubic-bezier(.32,.72,0,1)),visibility 0s linear .34s}
-  body.navopen nav{transform:none;visibility:visible;transition:transform .34s var(--ease-drawer,cubic-bezier(.32,.72,0,1)),visibility 0s}
-  nav button{min-width:0!important;padding-inline:14px!important}
-  .fab{bottom:calc(22px + env(safe-area-inset-bottom))!important}
-  .toast{bottom:calc(24px + env(safe-area-inset-bottom))!important}
+  body{padding-bottom:calc(104px + env(safe-area-inset-bottom))!important}
+  .hmenu,.navscrim{display:none!important}
+  body nav{top:auto!important;left:max(10px,calc(env(safe-area-inset-left,0px) + 8px))!important;right:max(10px,calc(env(safe-area-inset-right,0px) + 8px))!important;
+    bottom:calc(10px + env(safe-area-inset-bottom))!important;width:auto!important;max-width:720px!important;margin:0 auto!important;
+    flex-direction:row!important;justify-content:space-around!important;gap:2px!important;padding:6px!important;border-radius:26px!important;
+    overflow-x:auto!important;overflow-y:hidden!important;scrollbar-width:none;transform:none!important;visibility:visible!important;z-index:20!important}
+  body nav::-webkit-scrollbar{display:none}
+  body nav .brand{display:none!important}
+  body nav button{flex:1 0 auto!important;width:auto!important;min-width:50px!important;flex-direction:column!important;justify-content:center!important;align-items:center;
+    gap:3px!important;padding:6px 2px 5px!important;border-radius:18px!important;font-size:10.5px!important;transform:none!important}
+  body nav button span:not(.nic){font-size:10.5px!important;letter-spacing:-.01em}
+  body nav button .i,body nav button.active .i{width:46px!important;height:30px!important;padding:4px 0!important;border-radius:99px!important}
+  body nav button.active,body nav.parent button.active,body nav.school button.active{background:transparent!important;box-shadow:none!important;border-color:transparent!important;color:var(--primary)!important}
+  body nav.parent button.active{color:var(--fam)!important}
+  body nav.school button.active{color:var(--sch)!important}
+  body nav button.active::before{display:none}
+  body nav button.active .i{background:linear-gradient(180deg,rgba(255,255,255,.35),rgba(255,255,255,0) 55%),linear-gradient(180deg,var(--primary-2),var(--primary))!important;color:#fff;box-shadow:0 6px 16px -6px var(--primary),0 1px 0 rgba(255,255,255,.5) inset!important}
+  body nav.parent button.active .i{background:linear-gradient(180deg,rgba(255,255,255,.35),rgba(255,255,255,0) 55%),linear-gradient(180deg,var(--fam-2),var(--fam))!important;box-shadow:0 6px 16px -6px var(--fam),0 1px 0 rgba(255,255,255,.5) inset!important}
+  body nav.school button.active .i{background:linear-gradient(180deg,rgba(255,255,255,.35),rgba(255,255,255,0) 55%),linear-gradient(180deg,var(--sch-2),var(--sch))!important;box-shadow:0 6px 16px -6px var(--sch),0 1px 0 rgba(255,255,255,.5) inset!important}
+  body nav button .nic{position:relative!important}
+  body nav button .nic .nbadge{position:absolute!important;top:-3px!important;right:2px!important;left:auto!important;transform:none!important;margin:0!important;box-shadow:0 0 0 2px var(--card)!important}
+  .fab{bottom:calc(98px + env(safe-area-inset-bottom))!important}
+  .toast{bottom:calc(104px + env(safe-area-inset-bottom))!important}
 }
+@media (max-width:899.98px) and (hover:hover) and (pointer:fine){body nav button:hover{transform:none!important}}
 .navscrim{position:fixed;inset:0;z-index:34;background:rgba(10,24,45,.32);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);opacity:0;transition:opacity .3s}
 body.navopen .navscrim{opacity:1}
 /* Botón de menú (hamburguesa de cristal) */
