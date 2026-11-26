@@ -6469,7 +6469,7 @@ function tlAskModal(sid,mode){
     var done=function(tok){var l=appLink()+'?tt='+tok;try{lsSet(tlKey(sid),JSON.stringify({link:l,teacher:tn,exp:Date.now()+29*864e5,tok:tok}))}catch(e){}tlShowLink(s,l,tn)};
     if(SAMPLE){var tok='demotl'+uid()+uid();(demo.tlinks||(demo.tlinks={}))[tok]={student:tlSid(),subjectId:sid,subject:s.name,studentName:firstName(),teacherName:tn,askedBy:tlAsker(),topicsN:0,tasksN:0};done(tok);return}
     if(!F()||!F().temLink){toast('Esta función se usa con las cuentas de la familia.');b.disabled=false;return}
-    F().temLink('create',{studentId:curSid,subjectId:sid,subject:s.name,teacherName:tn,askedBy:parentName()}).then(function(r){done(r.token)},function(e){b.disabled=false;toast(tlErr(e),6000)});
+    F().temLink('create',{studentId:tlSid(),subjectId:sid,subject:s.name,teacherName:tn,askedBy:tlAsker()}).then(function(r){done(r.token)},function(e){b.disabled=false;toast(tlErr(e),6000)});
   };
 }
 function tlMsg(s,link,teacher){return 'Hola'+(teacher?' '+teacher:'')+', soy '+(MODE==='student'?tlAsker()+(S.settings&&S.settings.grade?', de '+S.settings.grade:''):parentName()+', de '+firstName())+'. ¿Me ayuda '+(TLMODE?'poniendo las notas (exámenes, laboratorios, proyectos…) de '+s.name+' en este link?':'cargando el temario, las actividades y las notas de '+s.name+' en este link?')+' No necesita cuenta ni instalar nada: '+link}
